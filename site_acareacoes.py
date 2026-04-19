@@ -3,7 +3,8 @@ import pandas as pd
 import urllib.parse
 import re
 
-# Configuração da página do site
+# 1. Configuração da página (O 'page_icon' é a imagenzinha na aba do navegador)
+# Você pode usar um emoji ou o caminho para a sua logo ex: page_icon="logo.png"
 st.set_page_config(page_title="Portal de Acareações", layout="centered", page_icon="📦")
 
 # ==============================================================
@@ -11,7 +12,16 @@ st.set_page_config(page_title="Portal de Acareações", layout="centered", page_
 # ==============================================================
 NUMERO_BASE = "5531971463005" # <- ALTERE AQUI PARA O SEU NÚMERO
 
-st.title("📦 Portal de Acareações")
+# ==============================================================
+# CABEÇALHO COM A LOGO DA EMPRESA
+# ==============================================================
+# Usamos colunas para centralizar a logo no meio da tela
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    # Insira o nome exato do arquivo da sua logo aqui
+    st.image("logo.png", use_container_width=True)
+
+st.title("Portal de Acareações")
 st.markdown("Selecione seu nome abaixo para contatar os clientes e enviar as tratativas.")
 
 try:
