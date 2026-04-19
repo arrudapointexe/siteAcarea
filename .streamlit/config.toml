@@ -1,0 +1,15 @@
+[theme]
+# Cor principal (Botões, destaques, barra de seleção)
+primaryColor = "#1E4976" 
+
+# Cor do fundo da página principal
+backgroundColor = "#FFFFFF" 
+
+# Cor do fundo secundário (usada em caixas expansíveis e barras laterais)
+secondaryBackgroundColor = "#F0F2F6" 
+
+# Cor do texto principal
+textColor = "#31333F" 
+
+# Fonte do site (opções: "sans serif", "serif", "monospace")
+font = "sans serif"
