@@ -105,16 +105,22 @@ if not df_imile.empty or not df_shopee.empty:
                 # =========================================================
                 # LIMPEZA BLINDADA DE TELEFONE (Serve para iMile e Shopee)
                 # =========================================================
-                tel_cliente = re.sub(r'\D', '', str(row.get('Telefone', '')))
+                tel_bruto = str(row.get('Telefone', ''))
                 
-                # 1. Se começar com 55, tira temporariamente para limpar o resto
+                # 1. Mata o ".0" fantasma do Excel/Pandas antes de limpar as letras
+                if tel_bruto.endswith('.0'):
+                    tel_bruto = tel_bruto[:-2]
+                    
+                tel_cliente = re.sub(r'\D', '', tel_bruto)
+                
+                # 2. Se começar com 55, tira temporariamente para limpar o resto
                 if tel_cliente.startswith('55') and len(tel_cliente) > 11:
                     tel_cliente = tel_cliente[2:]
                     
-                # 2. Remove qualquer '0' que o cliente tenha colocado no DDD (ex: 031)
+                # 3. Remove qualquer '0' que o cliente tenha colocado no DDD (ex: 031)
                 tel_cliente = tel_cliente.lstrip('0')
                 
-                # 3. Se sobrou um número válido (DDD + Numero), coloca o 55 definitivo
+                # 4. Se sobrou um número válido (DDD + Numero), coloca o 55 definitivo
                 if len(tel_cliente) >= 10:
                     tel_cliente = '55' + tel_cliente
                 else:
