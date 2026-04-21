@@ -8,17 +8,44 @@ import os
 st.set_page_config(page_title="Portal de Acareações", layout="centered", page_icon="📦")
 
 # ==============================================================
-# SEU NÚMERO DE WHATSAPP (Apenas números, inclua 55 e DDD)
+# FUNÇÃO PARA LIMPAR E PADRONIZAR NOMES
+# ==============================================================
+def padronizar_motorista(nome_bruto):
+    """Limpa siglas da iMile e pega apenas o Primeiro e Último nome."""
+    if pd.isna(nome_bruto) or str(nome_bruto).strip() == '' or str(nome_bruto).strip() == '(vazio)':
+        return '(vazio)'
+        
+    nome = str(nome_bruto).upper() # Deixa tudo maiúsculo para evitar erros
+    
+    # 1. Remove qualquer coisa entre parênteses (Ex: "(STB LOC)", "(JML INT)")
+    nome = re.sub(r'\(.*?\)', '', nome)
+    
+    # 2. Remove o traço e tudo que vem depois (Ex: "- PRATA", "- DIONISIO")
+    nome = nome.split('-')[0]
+    
+    # 3. Limpa espaços extras no começo e no fim
+    nome = nome.strip()
+    
+    # 4. Pega apenas o PRIMEIRO nome e o ÚLTIMO sobrenome
+    partes = nome.split()
+    if len(partes) > 1:
+        return f"{partes[0]} {partes[-1]}"
+    elif len(partes) == 1:
+        return partes[0]
+        
+    return '(vazio)'
+
+# ==============================================================
+# SEU NÚMERO DE WHATSAPP
 # ==============================================================
 NUMERO_BASE = "5531999999999" # <- ALTERE AQUI PARA O SEU NÚMERO
 
-# Cabeçalho com Logo (se existir)
 try:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.image("logo.png", use_container_width=True)
 except:
-    pass # Ignora se a logo não estiver na pasta
+    pass 
 
 st.title("📦 Portal de Acareações")
 st.markdown("Selecione seu nome abaixo para contatar os clientes e enviar as tratativas para a base.")
@@ -29,14 +56,12 @@ st.markdown("Selecione seu nome abaixo para contatar os clientes e enviar as tra
 df_imile = pd.DataFrame()
 df_shopee = pd.DataFrame()
 
-# Tenta carregar iMile
 if os.path.exists("dados_acareacoes.xlsx"):
     try:
         df_imile = pd.read_excel("dados_acareacoes.xlsx")
         df_imile['Plataforma'] = 'iMile'
     except: pass
 
-# Tenta carregar Shopee
 if os.path.exists("dados_acareacoes_shopee.xlsx"):
     try:
         df_shopee = pd.read_excel("dados_acareacoes_shopee.xlsx")
@@ -47,13 +72,20 @@ if os.path.exists("dados_acareacoes_shopee.xlsx"):
 if not df_imile.empty or not df_shopee.empty:
     df_completo = pd.concat([df_imile, df_shopee], ignore_index=True)
     
+    # ==============================================================
+    # A MÁGICA ACONTECE AQUI: Aplica a padronização em todos os nomes
+    # ==============================================================
+    df_completo['Motorista'] = df_completo['Motorista'].apply(padronizar_motorista)
+    
     # Prepara a lista de motoristas
     motoristas = sorted(df_completo['Motorista'].dropna().unique().tolist())
     
-    # Remove o (vazio) das opções, se existir
+    # Remove o (vazio) das opções
     if '(vazio)' in motoristas: motoristas.remove('(vazio)')
 
     mot_selecionado = st.selectbox("👤 Selecione seu nome:", ["-- Escolha --"] + motoristas)
+
+# ... (O restante do código, os botões e os links do WhatsApp continuam EXATAMENTE IGUAIS a partir daqui) ...
 
     if mot_selecionado != "-- Escolha --":
         df_mot = df_completo[df_completo['Motorista'] == mot_selecionado]
