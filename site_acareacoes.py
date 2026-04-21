@@ -11,7 +11,7 @@ st.set_page_config(page_title="Portal de Acareações", layout="centered", page_
 # FUNÇÃO PARA LIMPAR E PADRONIZAR NOMES
 # ==============================================================
 def padronizar_motorista(nome_bruto):
-    """Limpa siglas da iMile e pega apenas o Primeiro Nome e o Primeiro Sobrenome."""
+    """Limpa siglas da iMile e pega apenas o Primeiro e Último nome."""
     if pd.isna(nome_bruto) or str(nome_bruto).strip() == '' or str(nome_bruto).strip() == '(vazio)':
         return '(vazio)'
         
@@ -26,15 +26,14 @@ def padronizar_motorista(nome_bruto):
     # 3. Limpa espaços extras no começo e no fim
     nome = nome.strip()
     
-    # 4. Pega apenas o PRIMEIRO nome e o PRIMEIRO sobrenome (posição 0 e posição 1)
+    # 4. Pega apenas o PRIMEIRO nome e o ÚLTIMO sobrenome
     partes = nome.split()
     if len(partes) > 1:
-        return f"{partes[0]} {partes[1]}"
+        return f"{partes[0]} {partes[-1]}"
     elif len(partes) == 1:
         return partes[0]
         
     return '(vazio)'
-
 
 # ==============================================================
 # SEU NÚMERO DE WHATSAPP
@@ -128,9 +127,11 @@ if not df_imile.empty or not df_shopee.empty:
 
                 # --- LÓGICA PARA SHOPEE ---
                 else:
-                    # Shopee não fornece telefone na extração PNR facilmente.
-                    # O motorista terá que copiar a mensagem e mandar pro número se ele tiver,
-                    # ou apenas copiar para fins de registro.
+                    # Formata o telefone (tira traços, espaços e garante o 55 no início)
+                    tel_cliente = re.sub(r'\D', '', str(row.get('Telefone', '')))
+                    if tel_cliente and not tel_cliente.startswith('55') and len(tel_cliente) >= 10:
+                        tel_cliente = '55' + tel_cliente
+                        
                     msg_cliente = (
                         f"Olá, somos a transportadora parceira da SHOPEE.\n\n"
                         f"Sr(a). {row['Nome']}, consta em nosso sistema uma contestação de entrega para o pacote:\n"
@@ -140,12 +141,12 @@ if not df_imile.empty or not df_shopee.empty:
                     st.markdown("**Mensagem Padrão (Shopee):**")
                     st.code(msg_cliente, language="text")
                     
-                    # Como não temos o telefone direto da Shopee na planilha, o botão redireciona para o WhatsApp limpo, 
-                    # ou podemos omitir o botão 1 se for inútil sem o número.
-                    link_cliente = f"https://wa.me/?text={urllib.parse.quote(msg_cliente)}"
-                    btn_cliente_html = f'<a href="{link_cliente}" target="_blank" style="display: block; text-align: center; background-color:#25D366; color:white; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold;">1️⃣ Copiar e Abrir Wpp (Escolher Contato)</a>'
-
-
+                    # Se tiver um telefone válido, cria o link direto. Se não, avisa.
+                    if len(tel_cliente) >= 10:
+                        link_cliente = f"https://wa.me/{tel_cliente}?text={urllib.parse.quote(msg_cliente)}"
+                        btn_cliente_html = f'<a href="{link_cliente}" target="_blank" style="display: block; text-align: center; background-color:#25D366; color:white; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold;">1️⃣ Enviar MSG Cliente (Shopee)</a>'
+                    else:
+                        btn_cliente_html = f'<div style="text-align: center; background-color:#f8d7da; color:#721c24; padding:12px; border-radius:8px; border: 1px solid #f5c6cb;">Telefone Indisponível na Planilha</div>'
                 # --- BOTÃO PARA A BASE (Comum aos dois) ---
                 msg_base = f"Olá Base! Segue o print da acareação do pacote {row['AWB']} ({plataforma})."
                 link_base = f"https://wa.me/{NUMERO_BASE}?text={urllib.parse.quote(msg_base)}"
