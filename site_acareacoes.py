@@ -102,12 +102,27 @@ if not df_imile.empty or not df_shopee.empty:
             
             with st.expander(f"{icone} {plataforma} | Pacote: {row['AWB']} - {row['Nome']}", expanded=False):
                 
+                # =========================================================
+                # LIMPEZA BLINDADA DE TELEFONE (Serve para iMile e Shopee)
+                # =========================================================
+                tel_cliente = re.sub(r'\D', '', str(row.get('Telefone', '')))
+                
+                # 1. Se começar com 55, tira temporariamente para limpar o resto
+                if tel_cliente.startswith('55') and len(tel_cliente) > 11:
+                    tel_cliente = tel_cliente[2:]
+                    
+                # 2. Remove qualquer '0' que o cliente tenha colocado no DDD (ex: 031)
+                tel_cliente = tel_cliente.lstrip('0')
+                
+                # 3. Se sobrou um número válido (DDD + Numero), coloca o 55 definitivo
+                if len(tel_cliente) >= 10:
+                    tel_cliente = '55' + tel_cliente
+                else:
+                    tel_cliente = '' # Invalida se for muito curto
+                # =========================================================
+
                 # --- LÓGICA PARA IMILE ---
                 if plataforma == 'iMile':
-                    tel_cliente = re.sub(r'\D', '', str(row.get('Telefone', '')))
-                    if not tel_cliente.startswith('55') and len(tel_cliente) >= 10:
-                        tel_cliente = '55' + tel_cliente
-                        
                     msg_cliente = (
                         f"Olá, somos uma transportadora parceira (SHEIN/TIKTOK)\n\n"
                         f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
@@ -119,7 +134,7 @@ if not df_imile.empty or not df_shopee.empty:
                     st.markdown("**Mensagem Padrão (iMile):**")
                     st.code(msg_cliente, language="text") 
                     
-                    if len(tel_cliente) >= 10:
+                    if tel_cliente:
                         link_cliente = f"https://wa.me/{tel_cliente}?text={urllib.parse.quote(msg_cliente)}"
                         btn_cliente_html = f'<a href="{link_cliente}" target="_blank" style="display: block; text-align: center; background-color:#25D366; color:white; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold;">1️⃣ Enviar MSG Cliente (iMile)</a>'
                     else:
@@ -127,11 +142,6 @@ if not df_imile.empty or not df_shopee.empty:
 
                 # --- LÓGICA PARA SHOPEE ---
                 else:
-                    # Formata o telefone (tira traços, espaços e garante o 55 no início)
-                    tel_cliente = re.sub(r'\D', '', str(row.get('Telefone', '')))
-                    if tel_cliente and not tel_cliente.startswith('55') and len(tel_cliente) >= 10:
-                        tel_cliente = '55' + tel_cliente
-                        
                     msg_cliente = (
                         f"Olá, somos a transportadora parceira da SHOPEE.\n\n"
                         f"Sr(a). {row['Nome']}, consta em nosso sistema uma contestação de entrega para o pacote:\n"
@@ -141,12 +151,12 @@ if not df_imile.empty or not df_shopee.empty:
                     st.markdown("**Mensagem Padrão (Shopee):**")
                     st.code(msg_cliente, language="text")
                     
-                    # Se tiver um telefone válido, cria o link direto. Se não, avisa.
-                    if len(tel_cliente) >= 10:
+                    if tel_cliente:
                         link_cliente = f"https://wa.me/{tel_cliente}?text={urllib.parse.quote(msg_cliente)}"
                         btn_cliente_html = f'<a href="{link_cliente}" target="_blank" style="display: block; text-align: center; background-color:#25D366; color:white; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold;">1️⃣ Enviar MSG Cliente (Shopee)</a>'
                     else:
                         btn_cliente_html = f'<div style="text-align: center; background-color:#f8d7da; color:#721c24; padding:12px; border-radius:8px; border: 1px solid #f5c6cb;">Telefone Indisponível na Planilha</div>'
+
                 # --- BOTÃO PARA A BASE (Comum aos dois) ---
                 msg_base = f"Olá Base! Segue o print da acareação do pacote {row['AWB']} ({plataforma})."
                 link_base = f"https://wa.me/{NUMERO_BASE}?text={urllib.parse.quote(msg_base)}"
