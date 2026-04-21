@@ -38,7 +38,7 @@ def padronizar_motorista(nome_bruto):
 # ==============================================================
 # SEU NÚMERO DE WHATSAPP
 # ==============================================================
-NUMERO_BASE = "5531999999999" # <- ALTERE AQUI PARA O SEU NÚMERO
+NUMERO_BASE = "5531971463005" # <- ALTERE AQUI PARA O SEU NÚMERO
 
 try:
     col1, col2, col3 = st.columns([1, 2, 1])
