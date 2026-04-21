@@ -11,7 +11,7 @@ st.set_page_config(page_title="Portal de Acareações", layout="centered", page_
 # FUNÇÃO PARA LIMPAR E PADRONIZAR NOMES
 # ==============================================================
 def padronizar_motorista(nome_bruto):
-    """Limpa siglas da iMile e pega apenas o Primeiro e Último nome."""
+    """Limpa siglas da iMile e pega apenas o Primeiro Nome e o Primeiro Sobrenome."""
     if pd.isna(nome_bruto) or str(nome_bruto).strip() == '' or str(nome_bruto).strip() == '(vazio)':
         return '(vazio)'
         
@@ -26,14 +26,15 @@ def padronizar_motorista(nome_bruto):
     # 3. Limpa espaços extras no começo e no fim
     nome = nome.strip()
     
-    # 4. Pega apenas o PRIMEIRO nome e o ÚLTIMO sobrenome
+    # 4. Pega apenas o PRIMEIRO nome e o PRIMEIRO sobrenome (posição 0 e posição 1)
     partes = nome.split()
     if len(partes) > 1:
-        return f"{partes[0]} {partes[-1]}"
+        return f"{partes[0]} {partes[1]}"
     elif len(partes) == 1:
         return partes[0]
         
     return '(vazio)'
+
 
 # ==============================================================
 # SEU NÚMERO DE WHATSAPP
