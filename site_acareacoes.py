@@ -10,7 +10,7 @@ st.set_page_config(page_title="Portal de Acareações", layout="centered", page_
 # ==============================================================
 # SEU NÚMERO DE WHATSAPP
 # ==============================================================
-NUMERO_BASE = "5531999999999" # <- ALTERE AQUI PARA O SEU NÚMERO
+NUMERO_BASE = "5531971463005" # <- ALTERE AQUI PARA O SEU NÚMERO
 
 # Cabeçalho com Logo
 try:
