@@ -32,7 +32,7 @@ def padronizar_motorista(nome_bruto):
 # ==============================================================
 # SEU NÚMERO DE WHATSAPP
 # ==============================================================
-NUMERO_BASE = "5531999999999" # <- ALTERE AQUI PARA O SEU NÚMERO
+NUMERO_BASE = "5531971463005" # <- ALTERE AQUI PARA O SEU NÚMERO
 
 try:
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -92,7 +92,7 @@ if not df_imile.empty or not df_shopee.empty:
                 valor_pnr = row.get('Valor', '0.00')
                 st.markdown(f"""
                 <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; border-left: 5px solid #1E4976; margin-bottom: 15px;">
-                    <span style="color: #1E4976; font-weight: bold;">💰 VALOR DO PACOTE:</span> 
+                    <span style="color: #1E4976; font-weight: bold;">💰 VALOR DO PACOTE (R$100,00 de multa não incluso):</span> 
                     <span style="font-size: 18px; font-weight: bold;">R$ {valor_pnr}</span>
                 </div>
                 """, unsafe_allow_html=True)
