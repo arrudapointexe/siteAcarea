@@ -54,7 +54,7 @@ if not df_imile.empty:
                 valor_pnr = row.get('Valor', '0.00')
                 st.markdown(f"""
                 <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; border-left: 5px solid #1E4976; margin-bottom: 15px;">
-                    <span style="color: #1E4976; font-weight: bold;">💰 VALOR DO PACOTE:</span> 
+                    <span style="color: #1E4976; font-weight: bold;">💰 VALOR DO PACOTE (R$100,00 de multa não incluso):</span> 
                     <span style="font-size: 18px; font-weight: bold;">R$ {valor_pnr}</span>
                 </div>
                 """, unsafe_allow_html=True)
