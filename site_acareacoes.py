@@ -4,15 +4,21 @@ import urllib.parse
 import re
 import gspread
 import json
+from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+import io
 
-# Configuração da página do site
+# Configuração da página
 st.set_page_config(page_title="Portal de Acareações", layout="centered", page_icon="📦")
 
 # ==============================================================
-# O SEU NÚMERO DE WHATSAPP DA BASE
+# CONFIGURAÇÕES BÁSICAS
 # ==============================================================
-NUMERO_BASE = "5531971463005" 
+NUMERO_BASE = "5531971463005"
+ID_PASTA_DRIVE = "1yL7KPreMQ9HQpKRJsDptsIxoUB29czGW" # Sua pasta do Drive
 
+# Carregamento da Logotipo
 try:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -21,53 +27,75 @@ except:
     pass 
 
 st.title("📦 Portal de Acareações")
-st.markdown("Selecione o seu nome abaixo para contactar os clientes e enviar as tratativas para a base.")
 
+# ==============================================================
+# FUNÇÃO PARA CONECTAR AOS SERVIÇOS GOOGLE
+# ==============================================================
+def obter_credenciais():
+    # Tenta ler local, se não, lê do Secrets (Online)
+    try:
+        with open('credenciais.json') as f:
+            info = json.load(f)
+    except FileNotFoundError:
+        info = json.loads(st.secrets["chave_google"].strip())
+    
+    escopo = [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive'
+    ]
+    return Credentials.from_service_account_info(info, scopes=escopo)
+
+# ==============================================================
+# FUNÇÃO PARA UPLOAD DE FOTO
+# ==============================================================
+def upload_para_drive(arquivo_foto, nome_arquivo):
+    try:
+        creds = obter_credenciais()
+        servico = build('drive', 'v3', credentials=creds)
+        
+        metadados = {
+            'name': nome_arquivo,
+            'parents': [ID_PASTA_DRIVE]
+        }
+        
+        # Converte a foto do Streamlit para um formato que o Google aceita
+        media = MediaIoBaseUpload(io.BytesIO(arquivo_foto.getvalue()), 
+                                  mimetype=arquivo_foto.type)
+        
+        arquivo = servico.files().create(body=metadados, media_body=media, fields='id').execute()
+        return arquivo.get('id')
+    except Exception as e:
+        st.error(f"Erro no upload: {e}")
+        return None
+
+# ==============================================================
+# LEITURA DA PLANILHA
+# ==============================================================
 def carregar_dados_nuvem():
     try:
-        # O ROBÔ É INTELIGENTE: Tenta ler o ficheiro local primeiro
-        try:
-            cliente = gspread.service_account(filename='credenciais.json')
-        except FileNotFoundError:
-            # Se estiver na internet (Streamlit Cloud), lê a chave do Cofre Secreto
-            credenciais_dict = json.loads(st.secrets["chave_google"])
-            cliente = gspread.service_account_from_dict(credenciais_dict)
-
-        # Usar o nome exato que descobriu:
+        creds = obter_credenciais()
+        cliente = gspread.authorize(creds)
         planilha = cliente.open('acareaBase').sheet1
-        
-        # O método blindado para evitar o erro 200
         dados = planilha.get('A1:G5000')
         
         if not dados or len(dados) < 2:
-            st.info("A folha de cálculo está vazia ou contém apenas o cabeçalho.")
             return pd.DataFrame()
 
-        colunas = dados[0]
-        linhas_corrigidas = []
-        for linha in dados[1:]:
-            linha_completa = linha + [""] * (len(colunas) - len(linha))
-            linhas_corrigidas.append(linha_completa[:len(colunas)])
-
-        df = pd.DataFrame(linhas_corrigidas, columns=colunas)
-        
+        df = pd.DataFrame(dados[1:], columns=dados[0])
         df.columns = df.columns.astype(str).str.strip()
         if 'Motorista' in df.columns:
             df['Motorista'] = df['Motorista'].astype(str).str.strip()
-            
         return df
-        
     except Exception as e:
-        st.error(f"Erro técnico ao ler o Google Sheets: {e}")
+        st.error(f"Erro ao ler planilha: {e}")
         return pd.DataFrame()
 
 # ==============================================================
-# CARREGAMENTO E EXIBIÇÃO
+# INTERFACE DO SITE
 # ==============================================================
 df_imile = carregar_dados_nuvem()
 
 if not df_imile.empty:
-    
     motoristas = sorted(df_imile['Motorista'].dropna().unique().tolist())
     if '(vazio)' in motoristas: motoristas.remove('(vazio)')
 
@@ -75,55 +103,46 @@ if not df_imile.empty:
 
     if mot_selecionado != "-- Escolha --":
         df_mot = df_imile[df_imile['Motorista'] == mot_selecionado]
-        
-        st.success(f"Tem **{len(df_mot)} acareação(ões)** pendente(s) hoje.")
+        st.success(f"Você tem **{len(df_mot)} acareação(ões)** pendente(s).")
         
         for idx, row in df_mot.iterrows():
             with st.expander(f"🔵 iMile | Pacote: {row['AWB']} - {row['Nome']}", expanded=False):
                 
-                valor_pnr = row.get('Valor', '0.00')
-                st.markdown(f"""
-                <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; border-left: 5px solid #1E4976; margin-bottom: 15px;">
-                    <span style="color: #1E4976; font-weight: bold;">💰 VALOR DO PACOTE:</span> 
-                    <span style="font-size: 18px; font-weight: bold;">R$ {valor_pnr}</span>
-                </div>
-                """, unsafe_allow_html=True)
+                # Exibição do Valor
+                st.info(f"💰 VALOR DO PACOTE: R$ {row.get('Valor', '0.00')}")
                 
+                # --- ÁREA DE UPLOAD ---
+                st.markdown("### 📷 Enviar Comprovante")
+                foto = st.file_uploader(f"Anexe o print/foto (AWB {row['AWB']})", type=['png', 'jpg', 'jpeg'], key=f"file_{row['AWB']}")
+                
+                if foto:
+                    if st.button(f"Confirmar Envio da Foto {row['AWB']}", key=f"btn_{row['AWB']}"):
+                        with st.spinner("Enviando para a base..."):
+                            nome_img = f"{row['AWB']}_{row['Nome']}.jpg".replace(" ", "_")
+                            file_id = upload_para_drive(foto, nome_img)
+                            if file_id:
+                                st.success("✅ Foto salva com sucesso no Google Drive!")
+                                st.balloons()
+
+                # --- BOTÕES DE WHATSAPP ---
+                st.markdown("---")
+                # Limpeza de Telefone
                 tel_bruto = str(row.get('Telefone', ''))
-                if tel_bruto.endswith('.0'): tel_bruto = tel_bruto[:-2]
-                tel_cliente = re.sub(r'\D', '', tel_bruto)
-                if tel_cliente.startswith('55') and len(tel_cliente) > 11: tel_cliente = tel_cliente[2:]
-                tel_cliente = tel_cliente.lstrip('0')
+                tel_cliente = re.sub(r'\D', '', tel_bruto).lstrip('0')
                 if len(tel_cliente) >= 10: tel_cliente = '55' + tel_cliente
-                else: tel_cliente = '' 
+                else: tel_cliente = ''
 
-                msg_cliente = (
-                    f"Olá, somos uma transportadora parceira (SHEIN/TIKTOK)\n\n"
-                    f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
-                    f"Código do pacote: {row['AWB']}\n"
-                    f"Endereço: {row.get('Endereco', 'N/A')}\n\n"
-                    f"Produto: {row.get('Produto', 'N/A')}\n\n"
-                    f"Confirma o Recebimento do produto? SIM OU NÃO"
-                )
-                st.markdown("**Mensagem Padrão:**")
-                st.code(msg_cliente, language="text") 
-                
-                if tel_cliente:
-                    link_cliente = f"https://wa.me/{tel_cliente}?text={urllib.parse.quote(msg_cliente)}"
-                    btn_cliente_html = f'<a href="{link_cliente}" target="_blank" style="display: block; text-align: center; background-color:#25D366; color:white; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold;">1️⃣ Enviar MSG Cliente</a>'
-                else:
-                    btn_cliente_html = f'<div style="text-align: center; background-color:#f8d7da; color:#721c24; padding:12px; border-radius:8px; border: 1px solid #f5c6cb;">Telefone Indisponível</div>'
-
-                msg_base = f"Olá Base! Segue o print da acareação do pacote {row['AWB']} (iMile) - Valor: R$ {valor_pnr}."
-                link_base = f"https://wa.me/{NUMERO_BASE}?text={urllib.parse.quote(msg_base)}"
-                
-                st.markdown("<br>", unsafe_allow_html=True)
+                msg_cliente = f"Olá {row['Nome']}, somos a transportadora. Poderia confirmar o recebimento do pacote {row['AWB']}?"
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.markdown(btn_cliente_html, unsafe_allow_html=True)
+                    if tel_cliente:
+                        st.link_button("1️⃣ Chamar Cliente", f"https://wa.me/{tel_cliente}?text={urllib.parse.quote(msg_cliente)}")
+                    else:
+                        st.error("Telefone inválido")
                 with col2:
-                    st.markdown(f'<a href="{link_base}" target="_blank" style="display: block; text-align: center; background-color:#1E4976; color:white; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold;">2️⃣ Enviar Print p/ Base</a>', unsafe_allow_html=True)
+                    msg_base = f"Base, segue comprovante do pacote {row['AWB']}."
+                    st.link_button("2️⃣ Avisar Base", f"https://wa.me/{NUMERO_BASE}?text={urllib.parse.quote(msg_base)}")
 
 else:
-    st.warning("⚠️ Nenhuma acareação pendente neste momento.")
+    st.warning("⚠️ Nenhuma acareação pendente.")
