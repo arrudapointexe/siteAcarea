@@ -4,10 +4,9 @@ import urllib.parse
 import re
 import gspread
 import json
+import requests
+import base64
 from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-import io
 
 # Configuração da página
 st.set_page_config(page_title="Portal de Acareações", layout="centered", page_icon="📦")
@@ -16,7 +15,7 @@ st.set_page_config(page_title="Portal de Acareações", layout="centered", page_
 # CONFIGURAÇÕES BÁSICAS
 # ==============================================================
 NUMERO_BASE = "5531971463005"
-ID_PASTA_DRIVE = "1yL7KPreMQ9HQpKRJsDptsIxoUB29czGW" # Sua pasta do Drive
+IMGBB_API_KEY = "9127eccb78656e481be2eb59ad2657ff" # Sua chave do ImgBB
 
 # Carregamento da Logotipo
 try:
@@ -29,10 +28,9 @@ except:
 st.title("📦 Portal de Acareações")
 
 # ==============================================================
-# FUNÇÃO PARA CONECTAR AOS SERVIÇOS GOOGLE
+# FUNÇÃO PARA LER DADOS DA PLANILHA (GOOGLE)
 # ==============================================================
 def obter_credenciais():
-    # Tenta ler local, se não, lê do Secrets (Online)
     try:
         with open('credenciais.json') as f:
             info = json.load(f)
@@ -45,32 +43,6 @@ def obter_credenciais():
     ]
     return Credentials.from_service_account_info(info, scopes=escopo)
 
-# ==============================================================
-# FUNÇÃO PARA UPLOAD DE FOTO
-# ==============================================================
-def upload_para_drive(arquivo_foto, nome_arquivo):
-    try:
-        creds = obter_credenciais()
-        servico = build('drive', 'v3', credentials=creds)
-        
-        metadados = {
-            'name': nome_arquivo,
-            'parents': [ID_PASTA_DRIVE]
-        }
-        
-        # Converte a foto do Streamlit para um formato que o Google aceita
-        media = MediaIoBaseUpload(io.BytesIO(arquivo_foto.getvalue()), 
-                                  mimetype=arquivo_foto.type)
-        
-        arquivo = servico.files().create(body=metadados, media_body=media, fields='id').execute()
-        return arquivo.get('id')
-    except Exception as e:
-        st.error(f"Erro no upload: {e}")
-        return None
-
-# ==============================================================
-# LEITURA DA PLANILHA
-# ==============================================================
 def carregar_dados_nuvem():
     try:
         creds = obter_credenciais()
@@ -91,6 +63,32 @@ def carregar_dados_nuvem():
         return pd.DataFrame()
 
 # ==============================================================
+# FUNÇÃO PARA UPLOAD DE FOTO (IMGBB)
+# ==============================================================
+def upload_para_imgbb(arquivo_foto):
+    try:
+        url = "https://api.imgbb.com/1/upload"
+        # Converte a imagem para o formato que a internet entende (Base64)
+        imagem_base64 = base64.b64encode(arquivo_foto.getvalue()).decode('utf-8')
+        
+        payload = {
+            "key": IMGBB_API_KEY,
+            "image": imagem_base64
+        }
+        
+        resposta = requests.post(url, data=payload)
+        
+        if resposta.status_code == 200:
+            dados_resposta = resposta.json()
+            return dados_resposta['data']['url'] # Retorna o link direto da foto
+        else:
+            st.error(f"Erro no servidor de imagens: {resposta.text}")
+            return None
+    except Exception as e:
+        st.error(f"Erro ao processar a foto: {e}")
+        return None
+
+# ==============================================================
 # INTERFACE DO SITE
 # ==============================================================
 df_imile = carregar_dados_nuvem()
@@ -106,38 +104,43 @@ if not df_imile.empty:
         st.success(f"Você tem **{len(df_mot)} acareação(ões)** pendente(s).")
         
         for idx, row in df_mot.iterrows():
-            with st.expander(f"🔵 iMile | Pacote: {row['AWB']} - {row['Nome']}", expanded=False):
+            awb = row['AWB']
+            chave_link = f"link_foto_{awb}" # Gaveta de memória para salvar o link da foto
+            
+            with st.expander(f"🔵 iMile | Pacote: {awb} - {row['Nome']}", expanded=False):
                 
-                # Exibição do Valor
                 st.info(f"💰 VALOR DO PACOTE: R$ {row.get('Valor', '0.00')}")
                 
                 # --- ÁREA DE UPLOAD ---
                 st.markdown("### 📷 Enviar Comprovante")
-                foto = st.file_uploader(f"Anexe o print/foto (AWB {row['AWB']})", type=['png', 'jpg', 'jpeg'], key=f"file_{row['AWB']}")
+                foto = st.file_uploader(f"Anexe o print/foto (AWB {awb})", type=['png', 'jpg', 'jpeg'], key=f"file_{awb}")
                 
+                # Se o motorista colocar uma foto e apertar o botão
                 if foto:
-                    if st.button(f"Confirmar Envio da Foto {row['AWB']}", key=f"btn_{row['AWB']}"):
-                        with st.spinner("Enviando para a base..."):
-                            nome_img = f"{row['AWB']}_{row['Nome']}.jpg".replace(" ", "_")
-                            file_id = upload_para_drive(foto, nome_img)
-                            if file_id:
-                                st.success("✅ Foto salva com sucesso no Google Drive!")
+                    if st.button(f"Confirmar Envio da Foto {awb}", key=f"btn_{awb}"):
+                        with st.spinner("Gerando link seguro da imagem..."):
+                            link_gerado = upload_para_imgbb(foto)
+                            if link_gerado:
+                                # Guarda o link na memória do site
+                                st.session_state[chave_link] = link_gerado
+                                st.success("✅ Foto processada com sucesso!")
+                                st.markdown(f"**Link gerado:** [Ver Comprovante]({link_gerado})")
                                 st.balloons()
 
                 # --- BOTÕES DE WHATSAPP ---
                 st.markdown("---")
                 
-                # Limpeza de Telefone
+                # Tratamento do telefone
                 tel_bruto = str(row.get('Telefone', ''))
                 tel_cliente = re.sub(r'\D', '', tel_bruto).lstrip('0')
                 if len(tel_cliente) >= 10: tel_cliente = '55' + tel_cliente
                 else: tel_cliente = ''
 
-                # MENSAGEM PADRÃO COMPLETA (Endereço e Produto)
+                # MENSAGEM DO CLIENTE
                 msg_cliente = (
                     f"Olá, somos uma transportadora parceira (SHEIN/TIKTOK)\n\n"
                     f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
-                    f"Código do pacote: {row['AWB']}\n"
+                    f"Código do pacote: {awb}\n"
                     f"Endereço: {row.get('Endereco', 'N/A')}\n\n"
                     f"Produto: {row.get('Produto', 'N/A')}\n\n"
                     f"Confirma o Recebimento do produto? SIM OU NÃO"
@@ -152,7 +155,15 @@ if not df_imile.empty:
                     else:
                         st.error("Telefone indisponível")
                 with col2:
-                    msg_base = f"Base, segue comprovante do pacote {row['AWB']}."
+                    # MENSAGEM DA BASE (Agora inclui o link da foto se ela foi enviada!)
+                    msg_base = f"Base, segue tratativa do pacote {awb} (iMile) - Valor: R$ {row.get('Valor', '0.00')}."
+                    
+                    # Se houver um link de foto salvo na memória, adiciona na mensagem do zap
+                    if chave_link in st.session_state:
+                        msg_base += f"\n\n📷 Print/Comprovante: {st.session_state[chave_link]}"
+                    else:
+                        msg_base += f"\n\n⚠️ (Nenhum comprovante anexado no site)"
+
                     st.link_button("2️⃣ Avisar Base", f"https://wa.me/{NUMERO_BASE}?text={urllib.parse.quote(msg_base)}")
 
 else:
