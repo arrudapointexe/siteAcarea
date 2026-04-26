@@ -126,20 +126,31 @@ if not df_imile.empty:
 
                 # --- BOTÕES DE WHATSAPP ---
                 st.markdown("---")
+                
                 # Limpeza de Telefone
                 tel_bruto = str(row.get('Telefone', ''))
                 tel_cliente = re.sub(r'\D', '', tel_bruto).lstrip('0')
                 if len(tel_cliente) >= 10: tel_cliente = '55' + tel_cliente
                 else: tel_cliente = ''
 
-                msg_cliente = f"Olá {row['Nome']}, somos a transportadora. Poderia confirmar o recebimento do pacote {row['AWB']}?"
+                # MENSAGEM PADRÃO COMPLETA (Endereço e Produto)
+                msg_cliente = (
+                    f"Olá, somos uma transportadora parceira (SHEIN/TIKTOK)\n\n"
+                    f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
+                    f"Código do pacote: {row['AWB']}\n"
+                    f"Endereço: {row.get('Endereco', 'N/A')}\n\n"
+                    f"Produto: {row.get('Produto', 'N/A')}\n\n"
+                    f"Confirma o Recebimento do produto? SIM OU NÃO"
+                )
+                st.markdown("**Mensagem Padrão:**")
+                st.code(msg_cliente, language="text") 
                 
                 col1, col2 = st.columns(2)
                 with col1:
                     if tel_cliente:
                         st.link_button("1️⃣ Chamar Cliente", f"https://wa.me/{tel_cliente}?text={urllib.parse.quote(msg_cliente)}")
                     else:
-                        st.error("Telefone inválido")
+                        st.error("Telefone indisponível")
                 with col2:
                     msg_base = f"Base, segue comprovante do pacote {row['AWB']}."
                     st.link_button("2️⃣ Avisar Base", f"https://wa.me/{NUMERO_BASE}?text={urllib.parse.quote(msg_base)}")
