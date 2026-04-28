@@ -49,11 +49,39 @@ def obter_credenciais():
 # FUNÇÃO PARA FORMATAÇÃO DE PRAZO
 # ==============================================================
 
-def formatar_prazo(row):
-    prazo = str(row.get('Prazo do Processo', row.get('Prazo', ''))).strip()
-    if not prazo or prazo.lower() in ['nan', 'none']:
-        return 'Não informado'
-    return prazo
+def formatar_prazo(prazo_planilha):
+    """
+    Regra: Subtrai 2 horas do prazo do sistema.
+    Se o horário ajustado cair de madrugada (0h às 5h) ou a partir das 16h (16h às 23h),
+    o prazo final é forçado para 14:00.
+    """
+    prazo_texto = str(prazo_planilha).strip()
+    
+    # Se vier vazio da iMile
+    if not prazo_texto or prazo_texto.lower() in ['nan', 'none', 'n/a']:
+        return "14:00"
+        
+    try:
+        # Isola apenas a hora (ex: de "2026-04-29 19:08:23" extrai "19:08")
+        if " " in prazo_texto:
+            hora_str = prazo_texto.split(" ")[1][:5]
+        else:
+            hora_str = prazo_texto[:5]
+            
+        # Converte para tempo e diminui 2 horas
+        prazo_dt = datetime.strptime(hora_str, "%H:%M")
+        prazo_ajustado = prazo_dt - timedelta(hours=2)
+        
+        # Avalia a hora final ajustada
+        hora = prazo_ajustado.hour
+        if hora >= 16 or hora < 6:
+            return "14:00"
+            
+        return prazo_ajustado.strftime("%H:%M")
+        
+    except Exception:
+        # Se a iMile mudar o formato do nada, joga para 14h por segurança
+        return "14:00"
 
 # ==============================================================
 # FUNÇÃO PARA UPLOAD DE FOTO
