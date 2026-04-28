@@ -8,6 +8,7 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import io
+from datetime import datetime, timedelta
 
 # Configuração da página
 st.set_page_config(page_title="Portal de Acareações", layout="centered", page_icon="📦")
