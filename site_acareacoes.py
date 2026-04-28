@@ -158,7 +158,7 @@ if not df_imile.empty:
                 st.info(f"⏰ PRAZO DE FECHAMENTO: {prazo_texto}")
                 
                 # Exibição do Valor
-                st.info(f"💰 VALOR DO PACOTE: R$ {row.get('Valor', '0.00')} + R$100,00 MULTA")
+                st.info(f"💰 VALOR DO PACOTE: R\\$ {row.get('Valor', '0.00')} + R\\$100,00 MULTA")
                 
                 # --- ÁREA DE UPLOAD ---
                 st.markdown("### 📷 Enviar Comprovante")
