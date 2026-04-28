@@ -86,7 +86,7 @@ def carregar_dados_nuvem():
         creds = obter_credenciais()
         cliente = gspread.authorize(creds)
         planilha = cliente.open('acareaBase').sheet1
-        dados = planilha.get('A1:G5000')
+        dados = planilha.get_all_values()
         
         if not dados or len(dados) < 2:
             return pd.DataFrame()
