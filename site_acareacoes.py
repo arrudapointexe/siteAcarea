@@ -8,6 +8,8 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import io
+import base64
+import requests
 from datetime import datetime, timedelta
 
 # Configuração da página
@@ -89,28 +91,69 @@ def formatar_prazo(prazo_planilha):
     except Exception as e:
         # Em caso de erro de conversão, retorna a data de hoje com 14:00
         return datetime.now().strftime("%d/%m/%Y") + " 14:00"
+    """
+    Regra: Subtrai 2 horas do prazo do sistema.
+    Se o horário ajustado cair de madrugada (0h às 5h) ou a partir das 16h (16h às 23h),
+    o prazo final é forçado para 14:00.
+    """
+    prazo_texto = str(prazo_planilha).strip()
+    
+    # Se vier vazio da iMile
+    if not prazo_texto or prazo_texto.lower() in ['nan', 'none', 'n/a']:
+        return "14:00"
+        
+    try:
+        # Isola apenas a hora (ex: de "2026-04-29 19:08:23" extrai "19:08")
+        if " " in prazo_texto:
+            hora_str = prazo_texto.split(" ")[1][:5]
+        else:
+            hora_str = prazo_texto[:5]
+            
+        # Converte para tempo e diminui 2 horas
+        prazo_dt = datetime.strptime(hora_str, "%H:%M")
+        prazo_ajustado = prazo_dt - timedelta(hours=2)
+        
+        # Avalia a hora final ajustada
+        hora = prazo_ajustado.hour
+        if hora >= 16 or hora < 6:
+            return "14:00"
+            
+        return prazo_ajustado.strftime("%H:%M")
+        
+    except Exception:
+        # Se a iMile mudar o formato do nada, joga para 14h por segurança
+        return "14:00"
 
 # ==============================================================
 # FUNÇÃO PARA UPLOAD DE FOTO
 # ==============================================================
+# Cole aqui a URL que você copiou no Passo 1 (App da Web)
+URL_WEBHOOK_DRIVE = "https://script.google.com/macros/s/AKfycbw5jfWjFhxEatj1JhrZlPbs_0H5grj7F7zBZJjdLAZ9K7gyM2R1M_IY1OhkxccuS0FF/exec"
+
 def upload_para_drive(arquivo_foto, nome_arquivo):
     try:
-        creds = obter_credenciais()
-        servico = build('drive', 'v3', credentials=creds)
-        
-        metadados = {
-            'name': nome_arquivo,
-            'parents': [ID_PASTA_DRIVE]
+        # Pega a foto do site e codifica para enviar pela passagem secreta
+        bytes_imagem = arquivo_foto.getvalue()
+        base64_img = base64.b64encode(bytes_imagem).decode('utf-8')
+
+        payload = {
+            "filename": nome_arquivo,
+            "mimetype": arquivo_foto.type,
+            "base64": base64_img
         }
-        
-        # Converte a foto do Streamlit para um formato que o Google aceita
-        media = MediaIoBaseUpload(io.BytesIO(arquivo_foto.getvalue()), 
-                                  mimetype=arquivo_foto.type)
-        
-        arquivo = servico.files().create(body=metadados, media_body=media, fields='id').execute()
-        return arquivo.get('id')
+
+        # Dispara a foto para o seu Google Drive
+        resposta = requests.post(URL_WEBHOOK_DRIVE, json=payload)
+        resultado = resposta.json()
+
+        if resultado.get("status") == "success":
+            return resultado.get("id")
+        else:
+            st.error(f"Erro no Drive: {resultado.get('message')}")
+            return None
+
     except Exception as e:
-        st.error(f"Erro no upload: {e}")
+        st.error(f"Erro de conexão com o Drive: {e}")
         return None
 
 # ==============================================================
@@ -158,8 +201,7 @@ if not df_imile.empty:
                 st.info(f"⏰ PRAZO DE FECHAMENTO: {prazo_texto}")
                 
                 # Exibição do Valor
-                st.info(f"💰 VALOR DO PACOTE: R\\$ {row.get('Valor', '0.00')} + R\\$100,00 MULTA")
-                
+                st.info(f"💰 VALOR DO PACOTE: R\\$ {row.get('Valor', '0.00')} + R\\$100,00 MULTA")                
                 # --- ÁREA DE UPLOAD ---
                 st.markdown("### 📷 Enviar Comprovante")
                 foto = st.file_uploader(f"Anexe o print/foto (AWB {row['AWB']})", type=['png', 'jpg', 'jpeg'], key=f"file_{row['AWB']}")
