@@ -93,7 +93,7 @@ def carregar_dados_nuvem():
     try:
         creds = obter_credenciais()
         cliente = gspread.authorize(creds)
-        planilha = cliente.open(NOME_PLANILHA).sheet1
+        planilha = cliente.open(NOME_PLANILHA).JML
         dados = planilha.get_all_values()
         
         if not dados or len(dados) < 2: return pd.DataFrame()
