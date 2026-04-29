@@ -89,22 +89,23 @@ def upload_para_drive(arquivo_foto, nome_arquivo):
         st.error(f"Erro de conexão com o Drive Webhook: {e}")
         return None
 
-def carregar_dados_nuvem():
+def carregar_dados_base(nome_aba):
     try:
         creds = obter_credenciais()
         cliente = gspread.authorize(creds)
-        planilha = cliente.open(NOME_PLANILHA).JML
-        dados = planilha.get_all_values()
         
-        if not dados or len(dados) < 2: return pd.DataFrame()
+        # O JEITO CERTO: usa .worksheet() com o nome que veio da seleção
+        planilha = cliente.open('acareaBase').worksheet(nome_aba)
+        
+        dados = planilha.get_all_values()
+        if not dados or len(dados) < 2: 
+            return pd.DataFrame()
 
         df = pd.DataFrame(dados[1:], columns=dados[0])
-        df.columns = df.columns.astype(str).str.strip()
-        if 'Motorista' in df.columns:
-            df['Motorista'] = df['Motorista'].astype(str).str.strip()
         return df
     except Exception as e:
-        st.error(f"Erro ao ler planilha: {e}")
+        st.error(f"Erro ao ler aba {nome_aba}: {e}")
+        return pd.DataFrame() planilha: {e}")
         return pd.DataFrame()
 
 df_imile = carregar_dados_nuvem()
