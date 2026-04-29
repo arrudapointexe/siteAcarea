@@ -10,12 +10,15 @@ import base64
 import requests
 from datetime import datetime, timedelta
 
+# ==============================================================
+# CONFIGURAÇÃO DA PÁGINA
+# ==============================================================
 st.set_page_config(page_title="Portal de Acareações", layout="centered", page_icon="📦")
 
 # ==============================================================
-# VARIÁVEIS DE AMBIENTE (SECRETS)
+# CONFIGURAÇÕES E SECRETS
 # ==============================================================
-# No Streamlit Cloud, adicione essas variáveis em Settings > Secrets
+# Tenta ler do Streamlit Secrets (Nuvem), se não achar, lê do .env (PC Local)
 try:
     NUMERO_BASE = st.secrets.get("NUMERO_BASE", "5531971463005")
     NOME_PLANILHA = st.secrets.get("NOME_PLANILHA", "acareaBase")
@@ -25,19 +28,31 @@ except:
     NOME_PLANILHA = os.getenv("NOME_PLANILHA", "acareaBase")
     URL_WEBHOOK_DRIVE = os.getenv("URL_WEBHOOK_DRIVE", "")
 
+# ⚠️ LISTA DE BASES ATIVAS: Edite aqui os nomes das abas da sua planilha
+BASES_DISPONIVEIS = ["JML", "BH", "CONTAGEM", "BETIM"]
+
+# ==============================================================
+# CABEÇALHO DO SITE
+# ==============================================================
 try:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.image("logo.png", use_container_width=True)
-except: pass 
+except: 
+    pass 
 
 st.title("📦 Portal de Acareações")
 
+# ==============================================================
+# FUNÇÕES DE APOIO
+# ==============================================================
 def obter_credenciais():
     try:
+        # Tenta ler o arquivo local
         with open('credenciais.json') as f:
             info = json.load(f)
     except FileNotFoundError:
+        # Se não achar o arquivo, puxa a chave gigante do painel do Streamlit
         info = json.loads(st.secrets["chave_google"].strip())
     
     escopo = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
@@ -45,13 +60,16 @@ def obter_credenciais():
 
 def formatar_prazo(prazo_planilha):
     prazo_texto = str(prazo_planilha).strip()
+    
     if not prazo_texto or prazo_texto.lower() in ['nan', 'none', 'n/a']:
         amanha = datetime.now() + timedelta(days=1)
         return amanha.strftime("%d/%m/%Y") + " 14:00"
         
     try:
-        try: prazo_dt = datetime.strptime(prazo_texto, "%Y-%m-%d %H:%M:%S")
-        except: prazo_dt = datetime.strptime(prazo_texto[:16], "%Y-%m-%d %H:%M")
+        try: 
+            prazo_dt = datetime.strptime(prazo_texto, "%Y-%m-%d %H:%M:%S")
+        except: 
+            prazo_dt = datetime.strptime(prazo_texto[:16], "%Y-%m-%d %H:%M")
 
         prazo_ajustado = prazo_dt - timedelta(hours=2)
         hora = prazo_ajustado.hour
@@ -89,37 +107,33 @@ def upload_para_drive(arquivo_foto, nome_arquivo):
         st.error(f"Erro de conexão com o Drive Webhook: {e}")
         return None
 
+@st.cache_data(ttl=60) # Atualiza a leitura da planilha a cada 60 segundos
 def carregar_dados_base(nome_aba):
     try:
         creds = obter_credenciais()
         cliente = gspread.authorize(creds)
-        
-        # O JEITO CERTO: usa .worksheet() com o nome que veio da seleção
-        planilha = cliente.open('acareaBase').worksheet(nome_aba)
-        
+        planilha = cliente.open(NOME_PLANILHA).worksheet(nome_aba)
         dados = planilha.get_all_values()
+        
         if not dados or len(dados) < 2: 
             return pd.DataFrame()
 
         df = pd.DataFrame(dados[1:], columns=dados[0])
+        df.columns = df.columns.astype(str).str.strip()
+        if 'Motorista' in df.columns:
+            df['Motorista'] = df['Motorista'].astype(str).str.strip()
         return df
     except Exception as e:
         st.error(f"Erro ao ler aba {nome_aba}: {e}")
         return pd.DataFrame()
 
-df_imile = carregar_dados_nuvem()
-
 # ==============================================================
 # INTERFACE DO SITE
 # ==============================================================
-st.title("📦 Portal de Acareações")
 
-# Verifica se o link já veio com a base (ex: ?base=JML)
+# Verifica se o link já veio com a base preenchida (ex: ?base=JML)
 query_params = st.query_params
 base_via_url = query_params.get("base", None)
-
-# Lista de bases (Adicione ou remova conforme precisar)
-BASES_DISPONIVEIS = ["JML", "BH", "CONTAGEM"]
 
 # Seleção da Base
 if base_via_url in BASES_DISPONIVEIS:
@@ -128,9 +142,8 @@ if base_via_url in BASES_DISPONIVEIS:
 else:
     base_atual = st.selectbox("🏢 Selecione sua Unidade:", ["-- Escolha --"] + BASES_DISPONIVEIS)
 
-# Só carrega os dados DEPOIS que a base foi escolhida
+# Só carrega os dados e mostra os motoristas DEPOIS que a base foi escolhida
 if base_atual != "-- Escolha --":
-    # AQUI ESTÁ A CORREÇÃO: Chamando a função nova e passando a base!
     df_imile = carregar_dados_base(base_atual)
     
     if not df_imile.empty:
@@ -186,9 +199,7 @@ if base_atual != "-- Escolha --":
                             st.error("Telefone indisponível")
                     with col2:
                         msg_base = f"Base, segue comprovante do pacote {row['AWB']}."
-                        # NUMERO_BASE precisa estar definido lá no topo do arquivo ou vir do st.secrets
                         st.link_button("2️⃣ Avisar Base", f"https://wa.me/{NUMERO_BASE}?text={urllib.parse.quote(msg_base)}")
 
     else:
         st.warning(f"⚠️ Nenhuma acareação pendente na base {base_atual}.")
-
