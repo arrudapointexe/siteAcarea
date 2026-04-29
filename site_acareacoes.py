@@ -1,4 +1,4 @@
-import streamlit as st
+simport streamlit as st
 import pandas as pd
 import urllib.parse
 import re
@@ -163,7 +163,7 @@ def carregar_dados_nuvem():
     try:
         creds = obter_credenciais()
         cliente = gspread.authorize(creds)
-        planilha = cliente.open('acareaBase').sheet1
+        planilha = cliente.open('acareaBaseJML').sheet1
         dados = planilha.get_all_values()
         
         if not dados or len(dados) < 2:
