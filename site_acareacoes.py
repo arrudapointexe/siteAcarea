@@ -107,60 +107,88 @@ def carregar_dados_base(nome_aba):
         st.error(f"Erro ao ler aba {nome_aba}: {e}")
         return pd.DataFrame()
 
-df_imile = carregar_dados_nuvem()
+df_imile = carregar_dados_base()
 
-if not df_imile.empty:
-    motoristas = sorted(df_imile['Motorista'].dropna().unique().tolist())
-    if '(vazio)' in motoristas: motoristas.remove('(vazio)')
+# ==============================================================
+# INTERFACE DO SITE
+# ==============================================================
+st.title("📦 Portal de Acareações")
 
-    mot_selecionado = st.selectbox("👤 Selecione o seu nome:", ["-- Escolha --"] + motoristas)
+# Verifica se o link já veio com a base (ex: ?base=JML)
+query_params = st.query_params
+base_via_url = query_params.get("base", None)
 
-    if mot_selecionado != "-- Escolha --":
-        df_mot = df_imile[df_imile['Motorista'] == mot_selecionado]
-        st.success(f"Você tem **{len(df_mot)} acareação(ões)** pendente(s).")
-        
-        for idx, row in df_mot.iterrows():
-            with st.expander(f"🔵 iMile | Pacote: {row['AWB']} - {row['Nome']}", expanded=False):
-                prazo_texto = formatar_prazo(row.get('Prazo do Processo', ''))
-                st.info(f"⏰ PRAZO DE FECHAMENTO: {prazo_texto}")
-                st.info(f"💰 VALOR DO PACOTE: R\\$ {row.get('Valor', '0.00')} + R\\$ 100,00 MULTA")
+# Lista de bases (Adicione ou remova conforme precisar)
+BASES_DISPONIVEIS = ["JML", "BH", "CONTAGEM"]
 
-                st.markdown("### 📷 Enviar Comprovante")
-                foto = st.file_uploader(f"Anexe o print/foto (AWB {row['AWB']})", type=['png', 'jpg', 'jpeg'], key=f"file_{row['AWB']}")
-                
-                if foto:
-                    if st.button(f"Confirmar Envio da Foto {row['AWB']}", key=f"btn_{row['AWB']}"):
-                        with st.spinner("Enviando para a base..."):
-                            nome_img = f"{row['AWB']}_{row['Nome']}.jpg".replace(" ", "_")
-                            file_id = upload_para_drive(foto, nome_img)
-                            if file_id:
-                                st.success("✅ Foto salva com sucesso no Google Drive!")
-                                st.balloons()
-
-                st.markdown("---")
-                tel_bruto = str(row.get('Telefone', ''))
-                tel_cliente = re.sub(r'\D', '', tel_bruto).lstrip('0')
-                if len(tel_cliente) >= 10: tel_cliente = '55' + tel_cliente
-                else: tel_cliente = ''
-
-                msg_cliente = (
-                    f"Olá, somos uma transportadora parceira (SHEIN/TIKTOK)\n\n"
-                    f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
-                    f"Código do pacote: {row['AWB']}\n"
-                    f"Endereço: {row.get('Endereco', 'N/A')}\n\n"
-                    f"Produto: {row.get('Produto', 'N/A')}\n\n"
-                    f"Confirma o Recebimento do produto? SIM OU NÃO"
-                )
-                st.code(msg_cliente, language="text") 
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    if tel_cliente:
-                        st.link_button("1️⃣ Chamar Cliente", f"https://wa.me/{tel_cliente}?text={urllib.parse.quote(msg_cliente)}")
-                    else:
-                        st.error("Telefone indisponível")
-                with col2:
-                    msg_base = f"Base, segue comprovante do pacote {row['AWB']}."
-                    st.link_button("2️⃣ Avisar Base", f"https://wa.me/{NUMERO_BASE}?text={urllib.parse.quote(msg_base)}")
+# Seleção da Base
+if base_via_url in BASES_DISPONIVEIS:
+    base_atual = base_via_url
+    st.info(f"📍 Base detectada: **{base_atual}**")
 else:
-    st.warning("⚠️ Nenhuma acareação pendente.")
+    base_atual = st.selectbox("🏢 Selecione sua Unidade:", ["-- Escolha --"] + BASES_DISPONIVEIS)
+
+# Só carrega os dados DEPOIS que a base foi escolhida
+if base_atual != "-- Escolha --":
+    # AQUI ESTÁ A CORREÇÃO: Chamando a função nova e passando a base!
+    df_imile = carregar_dados_base(base_atual)
+    
+    if not df_imile.empty:
+        motoristas = sorted(df_imile['Motorista'].dropna().unique().tolist())
+        if '(vazio)' in motoristas: motoristas.remove('(vazio)')
+
+        mot_selecionado = st.selectbox("👤 Selecione o seu nome:", ["-- Escolha --"] + motoristas)
+
+        if mot_selecionado != "-- Escolha --":
+            df_mot = df_imile[df_imile['Motorista'] == mot_selecionado]
+            st.success(f"Você tem **{len(df_mot)} acareação(ões)** pendente(s) na base {base_atual}.")
+            
+            for idx, row in df_mot.iterrows():
+                with st.expander(f"🔵 iMile | Pacote: {row['AWB']} - {row['Nome']}", expanded=False):
+                    
+                    prazo_texto = formatar_prazo(row.get('Prazo do Processo', ''))
+                    st.info(f"⏰ PRAZO DE FECHAMENTO: {prazo_texto}")
+                    st.info(f"💰 VALOR DO PACOTE: R\\$ {row.get('Valor', '0.00')} + R\\$ 100,00 MULTA")
+
+                    st.markdown("### 📷 Enviar Comprovante")
+                    foto = st.file_uploader(f"Anexe o print/foto (AWB {row['AWB']})", type=['png', 'jpg', 'jpeg'], key=f"file_{row['AWB']}")
+                    
+                    if foto:
+                        if st.button(f"Confirmar Envio da Foto {row['AWB']}", key=f"btn_{row['AWB']}"):
+                            with st.spinner("Enviando para a base..."):
+                                nome_img = f"{base_atual}_{row['AWB']}_{row['Nome']}.jpg".replace(" ", "_")
+                                file_id = upload_para_drive(foto, nome_img)
+                                if file_id:
+                                    st.success("✅ Foto salva com sucesso no Google Drive!")
+                                    st.balloons()
+
+                    st.markdown("---")
+                    tel_bruto = str(row.get('Telefone', ''))
+                    tel_cliente = re.sub(r'\D', '', tel_bruto).lstrip('0')
+                    if len(tel_cliente) >= 10: tel_cliente = '55' + tel_cliente
+                    else: tel_cliente = ''
+
+                    msg_cliente = (
+                        f"Olá, somos uma transportadora parceira (SHEIN/TIKTOK)\n\n"
+                        f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
+                        f"Código do pacote: {row['AWB']}\n"
+                        f"Endereço: {row.get('Endereco', 'N/A')}\n\n"
+                        f"Produto: {row.get('Produto', 'N/A')}\n\n"
+                        f"Confirma o Recebimento do produto? SIM OU NÃO"
+                    )
+                    st.code(msg_cliente, language="text") 
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if tel_cliente:
+                            st.link_button("1️⃣ Chamar Cliente", f"https://wa.me/{tel_cliente}?text={urllib.parse.quote(msg_cliente)}")
+                        else:
+                            st.error("Telefone indisponível")
+                    with col2:
+                        msg_base = f"Base, segue comprovante do pacote {row['AWB']}."
+                        # NUMERO_BASE precisa estar definido lá no topo do arquivo ou vir do st.secrets
+                        st.link_button("2️⃣ Avisar Base", f"https://wa.me/{NUMERO_BASE}?text={urllib.parse.quote(msg_base)}")
+
+    else:
+        st.warning(f"⚠️ Nenhuma acareação pendente na base {base_atual}.")
+
