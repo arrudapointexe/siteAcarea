@@ -105,7 +105,6 @@ def carregar_dados_base(nome_aba):
         return df
     except Exception as e:
         st.error(f"Erro ao ler aba {nome_aba}: {e}")
-        return pd.DataFrame() planilha: {e}")
         return pd.DataFrame()
 
 df_imile = carregar_dados_nuvem()
