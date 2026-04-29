@@ -107,7 +107,7 @@ def carregar_dados_base(nome_aba):
         st.error(f"Erro ao ler aba {nome_aba}: {e}")
         return pd.DataFrame()
 
-df_imile = carregar_dados_base()
+df_imile = carregar_dados_nuvem()
 
 # ==============================================================
 # INTERFACE DO SITE
