@@ -29,7 +29,7 @@ except:
     URL_WEBHOOK_DRIVE = os.getenv("URL_WEBHOOK_DRIVE", "")
 
 # ⚠️ LISTA DE BASES ATIVAS: Edite aqui os nomes das abas da sua planilha
-BASES_DISPONIVEIS = ["JML", "BH", "CONTAGEM", "BETIM"]
+BASES_DISPONIVEIS = ["JML", "ITR"]
 
 # ==============================================================
 # CABEÇALHO DO SITE
