@@ -175,31 +175,62 @@ elif menu == "📈 Dashboard de KPI":
         elif filtro_tempo == "Últimos 15 dias": df_kpi = df_kpi[df_kpi['Data'] >= (hoje - pd.Timedelta(days=15))]
         elif filtro_tempo == "Mês Atual": df_kpi = df_kpi[df_kpi['Data'].dt.month == hoje.month]
         
-        # Converte a data para string para ficar bonito no gráfico
-        # 👇 NOVO: Remove testes e rodadas duplas do robô (mantém apenas a última rodada do dia)
+        # Limpa duplicatas mantendo apenas a última rodada do dia
         df_kpi = df_kpi.drop_duplicates(subset=['Data', 'Base'], keep='last')
+        
+        # Ordena cronologicamente para as linhas do gráfico não voltarem para trás
+        df_kpi = df_kpi.sort_values(by='Data')
 
-        # Converte a data para string para ficar bonito no gráfico
-        df_kpi['Data'] = df_kpi['Data'].dt.strftime('%d/%m/%Y')
+        # Cria uma coluna de data formatada no estilo BR
+        df_kpi['Data_Formatada'] = df_kpi['Data'].dt.strftime('%d/%m')
 
         st.markdown("---")
         
         col1, col2 = st.columns(2)
         
+        # Paleta de cores para manter padrão
+        cores_bases = {'JML': '#FF4B4B', 'ITR': '#0068C9', 'CTG': '#29B09D'}
+        
         with col1:
             st.subheader("📊 Taxa de Acareação % (KPI)")
-            # Pivot table para separar uma linha por base
-            pivot_kpi = df_kpi.pivot(index='Data', columns='Base', values='KPI (%)')
-            st.line_chart(pivot_kpi)
+            # Gráfico de Linhas Interativo
+            fig_kpi = px.line(
+                df_kpi, 
+                x='Data_Formatada', 
+                y='KPI (%)', 
+                color='Base', 
+                markers=True, # Adiciona bolinhas nos pontos
+                color_discrete_map=cores_bases,
+                labels={'Data_Formatada': 'Data', 'KPI (%)': 'KPI (%)'}
+            )
+            # Melhora o design e o balãozinho de informação
+            fig_kpi.update_layout(xaxis_title="", yaxis_title="KPI (%)", legend_title="Base", hovermode="x unified")
+            st.plotly_chart(fig_kpi, use_container_width=True)
             
         with col2:
             st.subheader("📦 Total de Acareações Geradas")
-            pivot_qnt = df_kpi.pivot(index='Data', columns='Base', values='Acareações')
-            st.bar_chart(pivot_qnt)
+            # Gráfico de Barras Agrupadas (lado a lado, não empilhadas)
+            fig_qnt = px.bar(
+                df_kpi, 
+                x='Data_Formatada', 
+                y='Acareações', 
+                color='Base', 
+                barmode='group', # Barras lado a lado
+                text_auto=True,  # Mostra o número em cima da barra
+                color_discrete_map=cores_bases,
+                labels={'Data_Formatada': 'Data', 'Acareações': 'Qtd Acareações'}
+            )
+            # Remove título do eixo X para ficar limpo
+            fig_qnt.update_layout(xaxis_title="", yaxis_title="Acareações", legend_title="Base", hovermode="x unified")
+            st.plotly_chart(fig_qnt, use_container_width=True)
             
         st.markdown("---")
         st.subheader("📋 Tabela Consolidada (Período Selecionado)")
         # Soma total no período selecionado
         resumo = df_kpi.groupby('Base').agg({'Entregues': 'sum', 'Acareações': 'sum'}).reset_index()
-        resumo['KPI Geral (%)'] = round((resumo['Acareações'] / resumo['Entregues']) * 100, 2)
+        # Evitar divisão por zero na tabela
+        resumo['KPI Geral (%)'] = resumo.apply(
+            lambda row: round((row['Acareações'] / row['Entregues']) * 100, 2) if row['Entregues'] > 0 else 0.0, 
+            axis=1
+        )
         st.dataframe(resumo, use_container_width=True)
