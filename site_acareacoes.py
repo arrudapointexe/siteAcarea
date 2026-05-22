@@ -78,7 +78,10 @@ def carregar_kpi_historico():
 # ==============================================================
 # MENU LATERAL (SIDEBAR)
 # ==============================================================
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Imile_Delivery_Logo.jpg/800px-Imile_Delivery_Logo.jpg", width=150)
+try:
+    st.sidebar.image("logo.png", width=150)
+except:
+    pass
 st.sidebar.title("Navegação")
 menu = st.sidebar.radio("Ir para:", ["📷 Portal do Motorista", "🚨 Painel de Risco (< 5h)", "📈 Dashboard de KPI"])
 
