@@ -21,14 +21,17 @@ st.set_page_config(page_title="Portal de Acareações", layout="centered", page_
 # Tenta ler do Streamlit Secrets (Nuvem), se não achar, lê do .env (PC Local)
 try:
     NUMERO_BASE = st.secrets.get("NUMERO_BASE", "5531971463005")
+    # Tenta puxar o número específico de CTG. Se não existir, usa o padrão por segurança.
+    NUMERO_BASE_CTG = st.secrets.get("NUMERO_BASE_CTG", NUMERO_BASE) 
     NOME_PLANILHA = st.secrets.get("NOME_PLANILHA", "acareaBase")
     URL_WEBHOOK_DRIVE = st.secrets.get("URL_WEBHOOK_DRIVE", "")
 except:
     NUMERO_BASE = os.getenv("NUMERO_BASE", "5531971463005")
+    NUMERO_BASE_CTG = os.getenv("NUMERO_BASE_CTG", NUMERO_BASE)
     NOME_PLANILHA = os.getenv("NOME_PLANILHA", "acareaBase")
     URL_WEBHOOK_DRIVE = os.getenv("URL_WEBHOOK_DRIVE", "")
 
-# ⚠️ LISTA DE BASES ATIVAS: Edite aqui os nomes das abas da sua planilha
+# ⚠️ LISTA DE BASES ATIVAS
 BASES_DISPONIVEIS = ["JML", "ITR", "CTG"]
 
 # ==============================================================
@@ -48,11 +51,9 @@ st.title("📦 Portal de Acareações")
 # ==============================================================
 def obter_credenciais():
     try:
-        # Tenta ler o arquivo local
         with open('credenciais.json') as f:
             info = json.load(f)
     except FileNotFoundError:
-        # Se não achar o arquivo, puxa a chave gigante do painel do Streamlit
         info = json.loads(st.secrets["chave_google"].strip())
     
     escopo = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
@@ -107,7 +108,7 @@ def upload_para_drive(arquivo_foto, nome_arquivo):
         st.error(f"Erro de conexão com o Drive Webhook: {e}")
         return None
 
-@st.cache_data(ttl=60) # Atualiza a leitura da planilha a cada 60 segundos
+@st.cache_data(ttl=60)
 def carregar_dados_base(nome_aba):
     try:
         creds = obter_credenciais()
@@ -131,18 +132,15 @@ def carregar_dados_base(nome_aba):
 # INTERFACE DO SITE
 # ==============================================================
 
-# Verifica se o link já veio com a base preenchida (ex: ?base=JML)
 query_params = st.query_params
 base_via_url = query_params.get("base", None)
 
-# Seleção da Base
 if base_via_url in BASES_DISPONIVEIS:
     base_atual = base_via_url
     st.info(f"📍 Base detectada: **{base_atual}**")
 else:
     base_atual = st.selectbox("🏢 Selecione sua Unidade:", ["-- Escolha --"] + BASES_DISPONIVEIS)
 
-# Só carrega os dados e mostra os motoristas DEPOIS que a base foi escolhida
 if base_atual != "-- Escolha --":
     df_imile = carregar_dados_base(base_atual)
     
@@ -160,7 +158,13 @@ if base_atual != "-- Escolha --":
                 with st.expander(f"🔵 iMile | Pacote: {row['AWB']} - {row['Nome']}", expanded=False):
                     
                     prazo_texto = formatar_prazo(row.get('Prazo do Processo', ''))
+                    
+                    # Tenta puxar a coluna de Subtipo, caso seja a base JML ou ITR que ainda não tem essa coluna, exibe "N/A"
+                    subtipo = row['Subtipo'] if 'Subtipo' in df_mot.columns else "N/A"
+                    if pd.isna(subtipo) or str(subtipo).strip() == "": subtipo = "N/A"
+
                     st.info(f"⏰ PRAZO DE FECHAMENTO: {prazo_texto}")
+                    st.info(f"🚨 MOTIVO/SUBTIPO: {subtipo}")
                     st.info(f"💰 VALOR DO PACOTE: R\\$ {row.get('Valor', '0.00')} + R\\$ 100,00 MULTA")
 
                     st.markdown("### 📷 Enviar Comprovante")
@@ -169,7 +173,7 @@ if base_atual != "-- Escolha --":
                     if foto:
                         if st.button(f"Confirmar Envio da Foto {row['AWB']}", key=f"btn_{row['AWB']}"):
                             with st.spinner("Enviando para a base..."):
-                                nome_img = f"{base_atual}_{row['AWB']}_{row['Nome']}.jpeg".replace(" ", "_")
+                                nome_img = f"{base_atual}_{row['AWB']}_{row['Nome']}.jpe-g".replace(" ", "_")
                                 file_id = upload_para_drive(foto, nome_img)
                                 if file_id:
                                     st.success("✅ Foto salva com sucesso no Google Drive!")
@@ -199,7 +203,9 @@ if base_atual != "-- Escolha --":
                             st.error("Telefone indisponível")
                     with col2:
                         msg_base = f"Base, segue comprovante do pacote {row['AWB']}."
-                        st.link_button("2️⃣ Avisar Base", f"https://wa.me/{NUMERO_BASE}?text={urllib.parse.quote(msg_base)}")
+                        # Direciona para o número correto dependendo da base
+                        numero_whats = NUMERO_BASE_CTG if base_atual == "CTG" else NUMERO_BASE
+                        st.link_button("2️⃣ Avisar Base", f"https://wa.me/{numero_whats}?text={urllib.parse.quote(msg_base)}")
 
     else:
         st.warning(f"⚠️ Nenhuma acareação pendente na base {base_atual}.")
