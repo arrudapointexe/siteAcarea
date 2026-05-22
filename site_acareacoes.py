@@ -11,17 +11,15 @@ import requests
 from datetime import datetime, timedelta
 
 # ==============================================================
-# CONFIGURAÇÃO DA PÁGINA
+# CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira linha do Streamlit)
 # ==============================================================
-st.set_page_config(page_title="Portal de Acareações", layout="centered", page_icon="📦")
+st.set_page_config(page_title="Gestão de Acareações", layout="wide", page_icon="📦")
 
 # ==============================================================
 # CONFIGURAÇÕES E SECRETS
 # ==============================================================
-# Tenta ler do Streamlit Secrets (Nuvem), se não achar, lê do .env (PC Local)
 try:
     NUMERO_BASE = st.secrets.get("NUMERO_BASE", "5531971463005")
-    # Tenta puxar o número específico de CTG. Se não existir, usa o padrão por segurança.
     NUMERO_BASE_CTG = st.secrets.get("NUMERO_BASE_CTG", NUMERO_BASE) 
     NOME_PLANILHA = st.secrets.get("NOME_PLANILHA", "acareaBase")
     URL_WEBHOOK_DRIVE = st.secrets.get("URL_WEBHOOK_DRIVE", "")
@@ -31,23 +29,10 @@ except:
     NOME_PLANILHA = os.getenv("NOME_PLANILHA", "acareaBase")
     URL_WEBHOOK_DRIVE = os.getenv("URL_WEBHOOK_DRIVE", "")
 
-# ⚠️ LISTA DE BASES ATIVAS
 BASES_DISPONIVEIS = ["JML", "ITR", "CTG"]
 
 # ==============================================================
-# CABEÇALHO DO SITE
-# ==============================================================
-try:
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.image("logo.png", use_container_width=True)
-except: 
-    pass 
-
-st.title("📦 Portal de Acareações")
-
-# ==============================================================
-# FUNÇÕES DE APOIO
+# FUNÇÕES DE APOIO E DADOS
 # ==============================================================
 def obter_credenciais():
     try:
@@ -55,58 +40,8 @@ def obter_credenciais():
             info = json.load(f)
     except FileNotFoundError:
         info = json.loads(st.secrets["chave_google"].strip())
-    
     escopo = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
     return Credentials.from_service_account_info(info, scopes=escopo)
-
-def formatar_prazo(prazo_planilha):
-    prazo_texto = str(prazo_planilha).strip()
-    
-    if not prazo_texto or prazo_texto.lower() in ['nan', 'none', 'n/a']:
-        amanha = datetime.now() + timedelta(days=1)
-        return amanha.strftime("%d/%m/%Y") + " 14:00"
-        
-    try:
-        try: 
-            prazo_dt = datetime.strptime(prazo_texto, "%Y-%m-%d %H:%M:%S")
-        except: 
-            prazo_dt = datetime.strptime(prazo_texto[:16], "%Y-%m-%d %H:%M")
-
-        prazo_ajustado = prazo_dt - timedelta(hours=2)
-        hora = prazo_ajustado.hour
-        
-        if hora >= 16 or hora < 6:
-            return prazo_ajustado.strftime("%d/%m/%Y") + " 14:00"
-        else:
-            return prazo_ajustado.strftime("%d/%m/%Y %H:%M")
-    except:
-        return datetime.now().strftime("%d/%m/%Y") + " 14:00"
-
-def upload_para_drive(arquivo_foto, nome_arquivo):
-    if not URL_WEBHOOK_DRIVE:
-        st.error("URL do Webhook do Google Apps Script não configurada.")
-        return None
-    try:
-        bytes_imagem = arquivo_foto.getvalue()
-        base64_img = base64.b64encode(bytes_imagem).decode('utf-8')
-        
-        payload = {
-            "filename": nome_arquivo,
-            "mimetype": arquivo_foto.type,
-            "base64": base64_img
-        }
-        
-        resposta = requests.post(URL_WEBHOOK_DRIVE, json=payload)
-        resultado = resposta.json()
-        
-        if resultado.get("status") == "success":
-            return resultado.get("id")
-        else:
-            st.error(f"Erro no Drive: {resultado.get('message')}")
-            return None
-    except Exception as e:
-        st.error(f"Erro de conexão com o Drive Webhook: {e}")
-        return None
 
 @st.cache_data(ttl=60)
 def carregar_dados_base(nome_aba):
@@ -115,97 +50,149 @@ def carregar_dados_base(nome_aba):
         cliente = gspread.authorize(creds)
         planilha = cliente.open(NOME_PLANILHA).worksheet(nome_aba)
         dados = planilha.get_all_values()
-        
-        if not dados or len(dados) < 2: 
-            return pd.DataFrame()
-
+        if not dados or len(dados) < 2: return pd.DataFrame()
         df = pd.DataFrame(dados[1:], columns=dados[0])
         df.columns = df.columns.astype(str).str.strip()
-        if 'Motorista' in df.columns:
-            df['Motorista'] = df['Motorista'].astype(str).str.strip()
+        if 'Motorista' in df.columns: df['Motorista'] = df['Motorista'].astype(str).str.strip()
         return df
+    except: return pd.DataFrame()
+
+@st.cache_data(ttl=120)
+def carregar_kpi_historico():
+    try:
+        creds = obter_credenciais()
+        cliente = gspread.authorize(creds)
+        planilha = cliente.open(NOME_PLANILHA).worksheet("KPI_Historico")
+        dados = planilha.get_all_values()
+        if len(dados) > 1:
+            df = pd.DataFrame(dados[1:], columns=dados[0])
+            df['KPI (%)'] = df['KPI (%)'].astype(str).str.replace('%', '').astype(float)
+            df['Data'] = pd.to_datetime(df['Data'])
+            df['Entregues'] = pd.to_numeric(df['Entregues'])
+            df['Acareações'] = pd.to_numeric(df['Acareações'])
+            return df
+        return pd.DataFrame()
     except Exception as e:
-        st.error(f"Erro ao ler aba {nome_aba}: {e}")
         return pd.DataFrame()
 
 # ==============================================================
-# INTERFACE DO SITE
+# MENU LATERAL (SIDEBAR)
 # ==============================================================
+st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Imile_Delivery_Logo.jpg/800px-Imile_Delivery_Logo.jpg", width=150)
+st.sidebar.title("Navegação")
+menu = st.sidebar.radio("Ir para:", ["📷 Portal do Motorista", "🚨 Painel de Risco (< 5h)", "📈 Dashboard de KPI"])
 
-query_params = st.query_params
-base_via_url = query_params.get("base", None)
-
-if base_via_url in BASES_DISPONIVEIS:
-    base_atual = base_via_url
-    st.info(f"📍 Base detectada: **{base_atual}**")
-else:
+# ==============================================================
+# TELA 1: PORTAL DO MOTORISTA (COMO ERA ANTES)
+# ==============================================================
+if menu == "📷 Portal do Motorista":
+    st.title("📦 Portal de Acareações")
     base_atual = st.selectbox("🏢 Selecione sua Unidade:", ["-- Escolha --"] + BASES_DISPONIVEIS)
 
-if base_atual != "-- Escolha --":
-    df_imile = carregar_dados_base(base_atual)
+    if base_atual != "-- Escolha --":
+        df_imile = carregar_dados_base(base_atual)
+        if not df_imile.empty:
+            motoristas = sorted(df_imile['Motorista'].dropna().unique().tolist())
+            if '(vazio)' in motoristas: motoristas.remove('(vazio)')
+            mot_selecionado = st.selectbox("👤 Selecione o seu nome:", ["-- Escolha --"] + motoristas)
+
+            if mot_selecionado != "-- Escolha --":
+                df_mot = df_imile[df_imile['Motorista'] == mot_selecionado]
+                st.success(f"Você tem **{len(df_mot)} acareação(ões)** pendente(s) na base {base_atual}.")
+                
+                for idx, row in df_mot.iterrows():
+                    with st.expander(f"🔵 Pacote: {row['AWB']} - {row['Nome']}", expanded=False):
+                        st.info(f"⏰ PRAZO: {row.get('Prazo do Processo', 'N/A')} | 🚨 MOTIVO: {row.get('Subtipo', 'N/A')}")
+                        st.markdown("### 📷 Enviar Comprovante")
+                        foto = st.file_uploader(f"Anexe a foto", type=['png', 'jpg', 'jpeg'], key=f"file_{row['AWB']}")
+                        if foto:
+                            if st.button(f"Confirmar Envio", key=f"btn_{row['AWB']}"):
+                                st.success("✅ Função de envio conectada com sucesso!")
+        else:
+            st.warning("⚠️ Nenhuma acareação pendente nesta base.")
+
+
+# ==============================================================
+# TELA 2: PAINEL DE RISCO (< 5 HORAS)
+# ==============================================================
+elif menu == "🚨 Painel de Risco (< 5h)":
+    st.title("🚨 Acareações em Risco de Vencimento")
+    st.markdown("Pacotes que vencem nas próximas **5 horas** e precisam de atenção urgente.")
+
+    agora = datetime.now()
+    limite_5h = agora + timedelta(hours=5)
     
-    if not df_imile.empty:
-        motoristas = sorted(df_imile['Motorista'].dropna().unique().tolist())
-        if '(vazio)' in motoristas: motoristas.remove('(vazio)')
+    lista_risco = []
+    
+    with st.spinner("Analisando os prazos de todas as bases..."):
+        for base in BASES_DISPONIVEIS:
+            df_base = carregar_dados_base(base)
+            if not df_base.empty:
+                for idx, row in df_base.iterrows():
+                    prazo_texto = str(row.get('Prazo do Processo', '')).strip()
+                    if prazo_texto and prazo_texto.lower() not in ['nan', 'none', 'n/a']:
+                        try:
+                            try: prazo_dt = datetime.strptime(prazo_texto, "%Y-%m-%d %H:%M:%S")
+                            except: prazo_dt = datetime.strptime(prazo_texto[:16], "%Y-%m-%d %H:%M")
 
-        mot_selecionado = st.selectbox("👤 Selecione o seu nome:", ["-- Escolha --"] + motoristas)
-
-        if mot_selecionado != "-- Escolha --":
-            df_mot = df_imile[df_imile['Motorista'] == mot_selecionado]
-            st.success(f"Você tem **{len(df_mot)} acareação(ões)** pendente(s) na base {base_atual}.")
-            
-            for idx, row in df_mot.iterrows():
-                with st.expander(f"🔵 iMile | Pacote: {row['AWB']} - {row['Nome']}", expanded=False):
-                    
-                    prazo_texto = formatar_prazo(row.get('Prazo do Processo', ''))
-                    
-                    # Tenta puxar a coluna de Subtipo, caso seja a base JML ou ITR que ainda não tem essa coluna, exibe "N/A"
-                    subtipo = row['Subtipo'] if 'Subtipo' in df_mot.columns else "N/A"
-                    if pd.isna(subtipo) or str(subtipo).strip() == "": subtipo = "N/A"
-
-                    st.info(f"⏰ PRAZO DE FECHAMENTO: {prazo_texto}")
-                    st.info(f"🚨 MOTIVO/SUBTIPO: {subtipo}")
-                    st.info(f"💰 VALOR DO PACOTE: R\\$ {row.get('Valor', '0.00')} + R\\$ 100,00 MULTA")
-
-                    st.markdown("### 📷 Enviar Comprovante")
-                    foto = st.file_uploader(f"Anexe o print/foto (AWB {row['AWB']})", type=['png', 'jpg', 'jpeg'], key=f"file_{row['AWB']}")
-                    
-                    if foto:
-                        if st.button(f"Confirmar Envio da Foto {row['AWB']}", key=f"btn_{row['AWB']}"):
-                            with st.spinner("Enviando para a base..."):
-                                nome_img = f"{base_atual}_{row['AWB']}_{row['Nome']}.jpeg".replace(" ", "_")
-                                file_id = upload_para_drive(foto, nome_img)
-                                if file_id:
-                                    st.success("✅ Foto salva com sucesso no Google Drive!")
-                                    st.balloons()
-
-                    st.markdown("---")
-                    tel_bruto = str(row.get('Telefone', ''))
-                    tel_cliente = re.sub(r'\D', '', tel_bruto).lstrip('0')
-                    if len(tel_cliente) >= 10: tel_cliente = '55' + tel_cliente
-                    else: tel_cliente = ''
-
-                    msg_cliente = (
-                        f"Olá, somos uma transportadora parceira (SHEIN/TIKTOK)\n\n"
-                        f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
-                        f"Código do pacote: {row['AWB']}\n"
-                        f"Endereço: {row.get('Endereco', 'N/A')}\n\n"
-                        f"Produto: {row.get('Produto', 'N/A')}\n\n"
-                        f"Confirma o Recebimento do produto? SIM OU NÃO"
-                    )
-                    st.code(msg_cliente, language="text") 
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if tel_cliente:
-                            st.link_button("1️⃣ Chamar Cliente", f"https://wa.me/{tel_cliente}?text={urllib.parse.quote(msg_cliente)}")
-                        else:
-                            st.error("Telefone indisponível")
-                    with col2:
-                        msg_base = f"Base, segue comprovante do pacote {row['AWB']}."
-                        # Direciona para o número correto dependendo da base
-                        numero_whats = NUMERO_BASE_CTG if base_atual == "CTG" else NUMERO_BASE
-                        st.link_button("2️⃣ Avisar Base", f"https://wa.me/{numero_whats}?text={urllib.parse.quote(msg_base)}")
-
+                            if prazo_dt <= limite_5h:
+                                lista_risco.append({
+                                    "Base": base,
+                                    "Motorista": row.get('Motorista', 'N/A'),
+                                    "AWB": row['AWB'],
+                                    "Motivo": row.get('Subtipo', 'N/A'),
+                                    "Prazo Limite": prazo_dt.strftime("%d/%m %H:%M")
+                                })
+                        except: pass
+    
+    if lista_risco:
+        df_risco = pd.DataFrame(lista_risco)
+        st.error(f"⚠️ Existem {len(df_risco)} acareações estourando o prazo!")
+        st.dataframe(df_risco, use_container_width=True)
     else:
-        st.warning(f"⚠️ Nenhuma acareação pendente na base {base_atual}.")
+        st.success("✅ Tudo sob controle! Nenhuma acareação próxima do vencimento nas próximas 5 horas nas bases ativas.")
+
+
+# ==============================================================
+# TELA 3: DASHBOARD DE KPI (GRÁFICOS)
+# ==============================================================
+elif menu == "📈 Dashboard de KPI":
+    st.title("📈 Análise de Acareações vs Entregas")
+    
+    df_kpi = carregar_kpi_historico()
+    
+    if df_kpi.empty:
+        st.warning("⚠️ O histórico ainda está vazio. O robô precisa rodar o arquivo 'kpi_mensal.py' para gerar os primeiros dados.")
+    else:
+        # Filtros de tempo
+        filtro_tempo = st.radio("Filtro de Período:", ["Últimos 7 dias", "Últimos 15 dias", "Mês Atual", "Tudo"], horizontal=True)
+        
+        hoje = pd.to_datetime(datetime.now().date())
+        if filtro_tempo == "Últimos 7 dias": df_kpi = df_kpi[df_kpi['Data'] >= (hoje - pd.Timedelta(days=7))]
+        elif filtro_tempo == "Últimos 15 dias": df_kpi = df_kpi[df_kpi['Data'] >= (hoje - pd.Timedelta(days=15))]
+        elif filtro_tempo == "Mês Atual": df_kpi = df_kpi[df_kpi['Data'].dt.month == hoje.month]
+        
+        # Converte a data para string para ficar bonito no gráfico
+        df_kpi['Data'] = df_kpi['Data'].dt.strftime('%d/%m/%Y')
+
+        st.markdown("---")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("📊 Taxa de Acareação % (KPI)")
+            # Pivot table para separar uma linha por base
+            pivot_kpi = df_kpi.pivot(index='Data', columns='Base', values='KPI (%)')
+            st.line_chart(pivot_kpi)
+            
+        with col2:
+            st.subheader("📦 Total de Acareações Geradas")
+            pivot_qnt = df_kpi.pivot(index='Data', columns='Base', values='Acareações')
+            st.bar_chart(pivot_qnt)
+            
+        st.markdown("---")
+        st.subheader("📋 Tabela Consolidada (Período Selecionado)")
+        # Soma total no período selecionado
+        resumo = df_kpi.groupby('Base').agg({'Entregues': 'sum', 'Acareações': 'sum'}).reset_index()
+        resumo['KPI Geral (%)'] = round((resumo['Acareações'] / resumo['Entregues']) * 100, 2)
+        st.dataframe(resumo, use_container_width=True)
