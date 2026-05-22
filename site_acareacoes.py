@@ -173,7 +173,7 @@ if base_atual != "-- Escolha --":
                     if foto:
                         if st.button(f"Confirmar Envio da Foto {row['AWB']}", key=f"btn_{row['AWB']}"):
                             with st.spinner("Enviando para a base..."):
-                                nome_img = f"{base_atual}_{row['AWB']}_{row['Nome']}.jpe-g".replace(" ", "_")
+                                nome_img = f"{base_atual}_{row['AWB']}_{row['Nome']}.jpeg".replace(" ", "_")
                                 file_id = upload_para_drive(foto, nome_img)
                                 if file_id:
                                     st.success("✅ Foto salva com sucesso no Google Drive!")
