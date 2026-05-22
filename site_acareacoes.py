@@ -176,6 +176,10 @@ elif menu == "📈 Dashboard de KPI":
         elif filtro_tempo == "Mês Atual": df_kpi = df_kpi[df_kpi['Data'].dt.month == hoje.month]
         
         # Converte a data para string para ficar bonito no gráfico
+        # 👇 NOVO: Remove testes e rodadas duplas do robô (mantém apenas a última rodada do dia)
+        df_kpi = df_kpi.drop_duplicates(subset=['Data', 'Base'], keep='last')
+
+        # Converte a data para string para ficar bonito no gráfico
         df_kpi['Data'] = df_kpi['Data'].dt.strftime('%d/%m/%Y')
 
         st.markdown("---")
