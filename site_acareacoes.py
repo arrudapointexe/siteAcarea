@@ -2,6 +2,7 @@ import os
 import streamlit as st
 import pandas as pd
 import urllib.parse
+import plotly.express as px
 import re
 import gspread
 import json
