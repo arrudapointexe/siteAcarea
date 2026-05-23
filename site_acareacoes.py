@@ -2,7 +2,6 @@ import os
 import streamlit as st
 import pandas as pd
 import urllib.parse
-import plotly.express as px
 import re
 import gspread
 import json
@@ -107,14 +106,40 @@ if menu == "📷 Portal do Motorista":
                 for idx, row in df_mot.iterrows():
                     with st.expander(f"🔵 Pacote: {row['AWB']} - {row['Nome']}", expanded=False):
                         st.info(f"⏰ PRAZO: {row.get('Prazo do Processo', 'N/A')} | 🚨 MOTIVO: {row.get('Subtipo', 'N/A')}")
+                        
                         st.markdown("### 📷 Enviar Comprovante")
                         foto = st.file_uploader(f"Anexe a foto", type=['png', 'jpg', 'jpeg'], key=f"file_{row['AWB']}")
+                        
+                        # INJEÇÃO 1: Mostra a foto e o botão de confirmação original
                         if foto:
+                            st.image(foto, caption="Pré-visualização da Foto", width=250)
                             if st.button(f"Confirmar Envio", key=f"btn_{row['AWB']}"):
                                 st.success("✅ Função de envio conectada com sucesso!")
+                        
+                        # INJEÇÃO 2: Botões do WhatsApp abaixo da área de foto
+                        st.markdown("---")
+                        st.markdown("### 💬 Ações Rápidas")
+                        
+                        col_wpp1, col_wpp2 = st.columns(2)
+                        telefone = str(row.get('Telefone', '')).replace('.0', '').replace('-', '').replace(' ', '')
+                        rastreio = row['AWB']
+                        
+                        with col_wpp1:
+                            if telefone and telefone != 'nan':
+                                msg_cliente = f"Olá! Somos da transportadora responsável pela sua entrega da iMile (Pacote: {rastreio}). Gostaríamos de confirmar um detalhe sobre o seu endereço..."
+                                link_cliente = f"https://wa.me/55{telefone}?text={msg_cliente}".replace(' ', '%20')
+                                st.markdown(f'<a href="{link_cliente}" target="_blank"><button style="width:100%; background-color:#25D366; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold;">📱 Falar com Cliente</button></a>', unsafe_allow_html=True)
+                            else:
+                                st.warning("Sem telefone")
+                                
+                        with col_wpp2:
+                            msg_base = f"Acareação finalizada! Pacote: {rastreio}."
+                            # Utiliza as variáveis de contato da base já configuradas no topo do seu código
+                            num_zap = NUMERO_BASE_CTG if base_atual == "CTG" else NUMERO_BASE
+                            link_base = f"https://wa.me/{num_zap}?text={msg_base}".replace(' ', '%20')
+                            st.markdown(f'<a href="{link_base}" target="_blank"><button style="width:100%; background-color:#0068C9; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold;">🏢 Informar Base</button></a>', unsafe_allow_html=True)
         else:
             st.warning("⚠️ Nenhuma acareação pendente nesta base.")
-
 
 # ==============================================================
 # TELA 2: PAINEL DE RISCO (< 5 HORAS)
@@ -156,7 +181,6 @@ elif menu == "🚨 Painel de Risco (< 5h)":
     else:
         st.success("✅ Tudo sob controle! Nenhuma acareação próxima do vencimento nas próximas 5 horas nas bases ativas.")
 
-
 # ==============================================================
 # TELA 3: DASHBOARD DE KPI (GRÁFICOS)
 # ==============================================================
@@ -176,62 +200,33 @@ elif menu == "📈 Dashboard de KPI":
         elif filtro_tempo == "Últimos 15 dias": df_kpi = df_kpi[df_kpi['Data'] >= (hoje - pd.Timedelta(days=15))]
         elif filtro_tempo == "Mês Atual": df_kpi = df_kpi[df_kpi['Data'].dt.month == hoje.month]
         
-        # Limpa duplicatas mantendo apenas a última rodada do dia
+        # Limpa duplicatas para não dar erro no pivot (Adicionado por segurança)
         df_kpi = df_kpi.drop_duplicates(subset=['Data', 'Base'], keep='last')
         
-        # Ordena cronologicamente para as linhas do gráfico não voltarem para trás
-        df_kpi = df_kpi.sort_values(by='Data')
-
-        # Cria uma coluna de data formatada no estilo BR
-        df_kpi['Data_Formatada'] = df_kpi['Data'].dt.strftime('%d/%m')
+        # Converte a data para string para ficar bonito no gráfico
+        df_kpi['Data'] = df_kpi['Data'].dt.strftime('%d/%m/%Y')
 
         st.markdown("---")
         
         col1, col2 = st.columns(2)
         
-        # Paleta de cores para manter padrão
-        cores_bases = {'JML': '#FF4B4B', 'ITR': '#0068C9', 'CTG': '#29B09D'}
-        
         with col1:
             st.subheader("📊 Taxa de Acareação % (KPI)")
-            # Gráfico de Linhas Interativo
-            fig_kpi = px.line(
-                df_kpi, 
-                x='Data_Formatada', 
-                y='KPI (%)', 
-                color='Base', 
-                markers=True, # Adiciona bolinhas nos pontos
-                color_discrete_map=cores_bases,
-                labels={'Data_Formatada': 'Data', 'KPI (%)': 'KPI (%)'}
-            )
-            # Melhora o design e o balãozinho de informação
-            fig_kpi.update_layout(xaxis_title="", yaxis_title="KPI (%)", legend_title="Base", hovermode="x unified")
-            st.plotly_chart(fig_kpi, use_container_width=True)
+            # Pivot table para separar uma linha por base
+            pivot_kpi = df_kpi.pivot(index='Data', columns='Base', values='KPI (%)')
+            st.line_chart(pivot_kpi)
             
         with col2:
             st.subheader("📦 Total de Acareações Geradas")
-            # Gráfico de Barras Agrupadas (lado a lado, não empilhadas)
-            fig_qnt = px.bar(
-                df_kpi, 
-                x='Data_Formatada', 
-                y='Acareações', 
-                color='Base', 
-                barmode='group', # Barras lado a lado
-                text_auto=True,  # Mostra o número em cima da barra
-                color_discrete_map=cores_bases,
-                labels={'Data_Formatada': 'Data', 'Acareações': 'Qtd Acareações'}
-            )
-            # Remove título do eixo X para ficar limpo
-            fig_qnt.update_layout(xaxis_title="", yaxis_title="Acareações", legend_title="Base", hovermode="x unified")
-            st.plotly_chart(fig_qnt, use_container_width=True)
+            pivot_qnt = df_kpi.pivot(index='Data', columns='Base', values='Acareações')
+            st.bar_chart(pivot_qnt)
             
         st.markdown("---")
         st.subheader("📋 Tabela Consolidada (Período Selecionado)")
         # Soma total no período selecionado
         resumo = df_kpi.groupby('Base').agg({'Entregues': 'sum', 'Acareações': 'sum'}).reset_index()
-        # Evitar divisão por zero na tabela
+        # Evita erro de divisão por zero
         resumo['KPI Geral (%)'] = resumo.apply(
-            lambda row: round((row['Acareações'] / row['Entregues']) * 100, 2) if row['Entregues'] > 0 else 0.0, 
-            axis=1
+            lambda x: round((x['Acareações'] / x['Entregues']) * 100, 2) if x['Entregues'] > 0 else 0.0, axis=1
         )
         st.dataframe(resumo, use_container_width=True)
