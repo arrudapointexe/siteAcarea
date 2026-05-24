@@ -194,7 +194,7 @@ if menu == "📷 Portal do Motorista":
                             prazo_texto = formatar_prazo(row.get('Prazo do Processo', ''))
 
                             st.info(f"⏰ PRAZO DE FECHAMENTO: {prazo_texto}")
-                            st.info(f"💰 VALOR DO PACOTE: R$ {row.get('Valor', '0.00')} + R$ 100,00 MULTA")
+                            st.info(f"💰 VALOR DO PACOTE: "R$" {row.get('Valor', '0.00')} + "R$" 100,00 MULTA")
 
                             st.markdown("### 📷 Enviar Comprovante")
                             foto = st.file_uploader(f"Anexe o print/foto (AWB {row['AWB']})", type=['png', 'jpg', 'jpeg'], key=f"file_{row['AWB']}")
