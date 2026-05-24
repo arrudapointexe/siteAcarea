@@ -167,60 +167,73 @@ if menu == "📷 Portal do Motorista":
             mot_selecionado = st.selectbox("👤 Selecione o seu nome:", ["-- Escolha --"] + motoristas)
 
             if mot_selecionado != "-- Escolha --":
-                df_mot = df_imile[df_imile['Motorista'] == mot_selecionado]
+                df_mot = df_imile[df_imile['Motorista'] == mot_selecionado].copy()
                 st.success(f"Você tem **{len(df_mot)} acareação(ões)** pendente(s) na base {base_atual}.")
 
-                for idx, row in df_mot.iterrows():
-                    with st.expander(f"🔵 iMile | Pacote: {row['AWB']} - {row['Nome']}", expanded=False):
+                # =====================================================
+                # 🔹 NOVO: AGRUPAMENTO POR SUBTIPO
+                # =====================================================
+                # Garante que a coluna Subtipo existe e não está vazia
+                if 'Subtipo' not in df_mot.columns:
+                    df_mot['Subtipo'] = "N/A"
+                df_mot['Subtipo'] = df_mot['Subtipo'].apply(lambda x: "N/A" if pd.isna(x) or str(x).strip() == "" else str(x).strip())
+                
+                # Coleta os subtipos únicos do motorista
+                subtipos_unicos = sorted(df_mot['Subtipo'].unique())
 
-                        prazo_texto = formatar_prazo(row.get('Prazo do Processo', ''))
-                        
-                        # INJEÇÃO DA LÓGICA DO SUBTIPO AQUI 👇
-                        subtipo = row['Subtipo'] if 'Subtipo' in df_mot.columns else "N/A"
-                        if pd.isna(subtipo) or str(subtipo).strip() == "": subtipo = "N/A"
+                for subtipo_atual in subtipos_unicos:
+                    df_sub = df_mot[df_mot['Subtipo'] == subtipo_atual]
+                    
+                    # Cria um cabeçalho estilizado para separar cada bloco de Subtipo
+                    st.markdown(f"<h3 style='color: #0068C9; margin-top: 25px; border-bottom: 2px solid #0068C9; padding-bottom: 5px;'>🏷️ {subtipo_atual} <span style='color: gray; font-size: 16px;'>({len(df_sub)} pacote(s))</span></h3>", unsafe_allow_html=True)
 
-                        st.info(f"⏰ PRAZO DE FECHAMENTO: {prazo_texto}")
-                        st.info(f"🚨 MOTIVO/SUBTIPO: {subtipo}")
-                        st.info(f"💰 VALOR DO PACOTE: R$ {row.get('Valor', '0.00')} + R$ 100,00 MULTA")
+                    # Loop apenas nos pacotes que pertencem a esse Subtipo
+                    for idx, row in df_sub.iterrows():
+                        with st.expander(f"🔵 iMile | Pacote: {row['AWB']} - {row['Nome']}", expanded=False):
 
-                        st.markdown("### 📷 Enviar Comprovante")
-                        foto = st.file_uploader(f"Anexe o print/foto (AWB {row['AWB']})", type=['png', 'jpg', 'jpeg'], key=f"file_{row['AWB']}")
+                            prazo_texto = formatar_prazo(row.get('Prazo do Processo', ''))
 
-                        if foto:
-                            if st.button(f"Confirmar Envio da Foto {row['AWB']}", key=f"btn_{row['AWB']}"):
-                                with st.spinner("Enviando para a base..."):
-                                    nome_img = f"{base_atual}_{row['AWB']}_{row['Nome']}.jpeg".replace(" ", "_")
-                                    file_id = upload_para_drive(foto, nome_img)
-                                    if file_id:
-                                        st.success("✅ Foto salva com sucesso no Google Drive!")
-                                        st.balloons()
+                            st.info(f"⏰ PRAZO DE FECHAMENTO: {prazo_texto}")
+                            st.info(f"💰 VALOR DO PACOTE: R$ {row.get('Valor', '0.00')} + R$ 100,00 MULTA")
 
-                        st.markdown("---")
-                        tel_bruto = str(row.get('Telefone', ''))
-                        tel_cliente = re.sub(r'\D', '', tel_bruto).lstrip('0')
-                        if len(tel_cliente) >= 10: tel_cliente = '55' + tel_cliente
-                        else: tel_cliente = ''
+                            st.markdown("### 📷 Enviar Comprovante")
+                            foto = st.file_uploader(f"Anexe o print/foto (AWB {row['AWB']})", type=['png', 'jpg', 'jpeg'], key=f"file_{row['AWB']}")
 
-                        msg_cliente = (
-                            f"Olá, somos uma transportadora parceira (SHEIN/TIKTOK)\n\n"
-                            f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
-                            f"Código do pacote: {row['AWB']}\n"
-                            f"Endereço: {row.get('Endereco', 'N/A')}\n\n"
-                            f"Produto: {row.get('Produto', 'N/A')}\n\n"
-                            f"Confirma o Recebimento do produto? SIM OU NÃO"
-                        )
-                        st.code(msg_cliente, language="text") 
+                            if foto:
+                                if st.button(f"Confirmar Envio da Foto {row['AWB']}", key=f"btn_{row['AWB']}"):
+                                    with st.spinner("Enviando para a base..."):
+                                        nome_img = f"{base_atual}_{row['AWB']}_{row['Nome']}.jpeg".replace(" ", "_")
+                                        file_id = upload_para_drive(foto, nome_img)
+                                        if file_id:
+                                            st.success("✅ Foto salva com sucesso no Google Drive!")
+                                            st.balloons()
 
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            if tel_cliente:
-                                st.link_button("1️⃣ Chamar Cliente", f"https://wa.me/{tel_cliente}?text={urllib.parse.quote(msg_cliente)}")
-                            else:
-                                st.error("Telefone indisponível")
-                        with col2:
-                            msg_base = f"Base, segue comprovante do pacote {row['AWB']}."
-                            num_base_wa = NUMERO_BASE_CTG if base_atual == "CTG" else NUMERO_BASE
-                            st.link_button("2️⃣ Avisar Base", f"https://wa.me/{num_base_wa}?text={urllib.parse.quote(msg_base)}")
+                            st.markdown("---")
+                            tel_bruto = str(row.get('Telefone', ''))
+                            tel_cliente = re.sub(r'\D', '', tel_bruto).lstrip('0')
+                            if len(tel_cliente) >= 10: tel_cliente = '55' + tel_cliente
+                            else: tel_cliente = ''
+
+                            msg_cliente = (
+                                f"Olá, somos uma transportadora parceira (SHEIN/TIKTOK)\n\n"
+                                f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
+                                f"Código do pacote: {row['AWB']}\n"
+                                f"Endereço: {row.get('Endereco', 'N/A')}\n\n"
+                                f"Produto: {row.get('Produto', 'N/A')}\n\n"
+                                f"Confirma o Recebimento do produto? SIM OU NÃO"
+                            )
+                            st.code(msg_cliente, language="text") 
+
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                if tel_cliente:
+                                    st.link_button("1️⃣ Chamar Cliente", f"https://wa.me/{tel_cliente}?text={urllib.parse.quote(msg_cliente)}")
+                                else:
+                                    st.error("Telefone indisponível")
+                            with col2:
+                                msg_base = f"Base, segue comprovante do pacote {row['AWB']}."
+                                num_base_wa = NUMERO_BASE_CTG if base_atual == "CTG" else NUMERO_BASE
+                                st.link_button("2️⃣ Avisar Base", f"https://wa.me/{num_base_wa}?text={urllib.parse.quote(msg_base)}")
 
         else:
             st.warning(f"⚠️ Nenhuma acareação pendente na base {base_atual}.")
