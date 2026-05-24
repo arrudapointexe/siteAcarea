@@ -9,7 +9,7 @@ from google.oauth2.service_account import Credentials
 import base64
 import requests
 from datetime import datetime, timedelta
-import plotly.express as px  # Adicionado para os gráficos do Dashboard
+import plotly.express as px
 
 # ==============================================================
 # CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira linha do Streamlit)
@@ -136,7 +136,7 @@ st.sidebar.title("Navegação")
 menu = st.sidebar.radio("Ir para:", ["📷 Portal do Motorista", "🚨 Painel de Risco (< 5h)", "📈 Dashboard de KPI"])
 
 # ==============================================================
-# TELA 1: PORTAL DO MOTORISTA (COM SEU CÓDIGO ORIGINAL)
+# TELA 1: PORTAL DO MOTORISTA
 # ==============================================================
 if menu == "📷 Portal do Motorista":
     try:
@@ -148,18 +148,15 @@ if menu == "📷 Portal do Motorista":
 
     st.title("📦 Portal de Acareações")
 
-    # Verifica se o link já veio com a base preenchida (ex: ?base=JML)
     query_params = st.query_params
     base_via_url = query_params.get("base", None)
 
-    # Seleção da Base
     if base_via_url in BASES_DISPONIVEIS:
         base_atual = base_via_url
         st.info(f"📍 Base detectada: **{base_atual}**")
     else:
         base_atual = st.selectbox("🏢 Selecione sua Unidade:", ["-- Escolha --"] + BASES_DISPONIVEIS)
 
-    # Só carrega os dados e mostra os motoristas DEPOIS que a base foi escolhida
     if base_atual != "-- Escolha --":
         df_imile = carregar_dados_base(base_atual)
 
@@ -177,8 +174,14 @@ if menu == "📷 Portal do Motorista":
                     with st.expander(f"🔵 iMile | Pacote: {row['AWB']} - {row['Nome']}", expanded=False):
 
                         prazo_texto = formatar_prazo(row.get('Prazo do Processo', ''))
+                        
+                        # INJEÇÃO DA LÓGICA DO SUBTIPO AQUI 👇
+                        subtipo = row['Subtipo'] if 'Subtipo' in df_mot.columns else "N/A"
+                        if pd.isna(subtipo) or str(subtipo).strip() == "": subtipo = "N/A"
+
                         st.info(f"⏰ PRAZO DE FECHAMENTO: {prazo_texto}")
-                        st.info(f"💰 VALOR DO PACOTE: R\\$ {row.get('Valor', '0.00')} + R\\$ 100,00 MULTA")
+                        st.info(f"🚨 MOTIVO/SUBTIPO: {subtipo}")
+                        st.info(f"💰 VALOR DO PACOTE: R$ {row.get('Valor', '0.00')} + R$ 100,00 MULTA")
 
                         st.markdown("### 📷 Enviar Comprovante")
                         foto = st.file_uploader(f"Anexe o print/foto (AWB {row['AWB']})", type=['png', 'jpg', 'jpeg'], key=f"file_{row['AWB']}")
