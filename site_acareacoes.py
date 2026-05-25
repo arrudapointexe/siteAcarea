@@ -30,7 +30,8 @@ except:
     NOME_PLANILHA = os.getenv("NOME_PLANILHA", "acareaBase")
     URL_WEBHOOK_DRIVE = os.getenv("URL_WEBHOOK_DRIVE", "")
 
-BASES_DISPONIVEIS = ["JML", "ITR", "CTG"]
+# 🔥 ATUALIZADO: AS 10 BASES DA SUA REDE
+BASES_DISPONIVEIS = ["GVR", "TFO", "RBN", "CPH", "JML", "QHG", "CTP", "GNH", "ITR", "MNT"]
 
 # ==============================================================
 # FUNÇÕES DE APOIO E DADOS
@@ -134,7 +135,6 @@ def carregar_kpi_historico():
 # ==============================================================
 st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Imile_Delivery_Logo.jpg/800px-Imile_Delivery_Logo.jpg", width=150)
 st.sidebar.title("Navegação")
-# Adicionado o menu novo aqui!
 menu = st.sidebar.radio("Ir para:", ["📷 Portal do Motorista", "🚨 Painel de Risco (< 5h)", "🔥 Fila de Urgências", "📈 Dashboard de KPI"])
 
 query_params = st.query_params
@@ -178,7 +178,7 @@ if menu == "📷 Portal do Motorista":
                             prazo_texto = formatar_prazo(row.get('Prazo do Processo', ''))
 
                             st.info(f"⏰ PRAZO DE FECHAMENTO: {prazo_texto}")
-                            st.info(f"💰 VALOR DO PACOTE: R\\$ {row.get('Valor', '0.00')} + R\\$ 100,00 MULTA")
+                            st.info(f"💰 VALOR DO PACOTE: R$ {row.get('Valor', '0.00')} + R$ 100,00 MULTA")
 
                             st.markdown("### 📷 Enviar Comprovante")
                             foto = st.file_uploader(f"Anexe o print/foto (AWB {row['AWB']})", type=['png', 'jpg', 'jpeg'], key=f"file_{row['AWB']}")
@@ -329,16 +329,15 @@ elif menu == "📈 Dashboard de KPI":
         st.markdown("---")
         
         col1, col2 = st.columns(2)
-        cores_bases = {'JML': '#FF4B4B', 'ITR': '#0068C9', 'CTG': '#29B09D'}
         
         with col1:
             st.subheader("📊 Taxa de Acareação % (KPI)")
+            # 🔥 ATUALIZADO: Gráfico agora suporta N bases sem travar as cores manualmente
             fig_kpi = px.line(
                 df_kpi, 
                 x='Data_Formatada', 
                 y='KPI (%)', 
                 color='Base', 
-                color_discrete_map=cores_bases,
                 labels={'Data_Formatada': 'Data', 'KPI (%)': 'KPI (%)'}
             )
             fig_kpi.update_traces(mode='lines+markers')
@@ -354,7 +353,6 @@ elif menu == "📈 Dashboard de KPI":
                 color='Base', 
                 barmode='group',
                 text_auto=True,
-                color_discrete_map=cores_bases,
                 labels={'Data_Formatada': 'Data', 'Acareações': 'Qtd Acareações'}
             )
             fig_qnt.update_layout(xaxis_title="", yaxis_title="Acareações", legend_title="Base", hovermode="x unified")
@@ -363,5 +361,8 @@ elif menu == "📈 Dashboard de KPI":
         st.markdown("---")
         st.subheader("📋 Tabela Consolidada (Período Selecionado)")
         resumo = df_kpi.groupby('Base').agg({'Entregues': 'sum', 'Acareações': 'sum'}).reset_index()
-        resumo['KPI Geral (%)'] = round((resumo['Acareações'] / resumo['Entregues']) * 100, 2)
+        resumo['KPI Geral (%)'] = resumo.apply(
+            lambda row: round((row['Acareações'] / row['Entregues']) * 100, 2) if row['Entregues'] > 0 else 0.0, 
+            axis=1
+        )
         st.dataframe(resumo, use_container_width=True)
