@@ -135,8 +135,7 @@ def carregar_kpi_historico():
 # ==============================================================
 st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Imile_Delivery_Logo.jpg/800px-Imile_Delivery_Logo.jpg", width=150)
 st.sidebar.title("Navegação")
-menu = st.sidebar.radio("Ir para:", ["📷 Portal do Motorista", "🚨 Painel de Risco (< 5h)", "🔥 Fila de Urgências", "📈 Dashboard de KPI"])
-
+menu = st.sidebar.radio("Ir para:", ["📷 Portal do Motorista", "🚨 Painel de Risco (< 5h)", "🔥 Fila de Urgências", "📈 Dashboard de KPI", "💬 Gerador de Mensagens"])
 query_params = st.query_params
 base_via_url = query_params.get("base", None)
 
@@ -366,3 +365,65 @@ elif menu == "📈 Dashboard de KPI":
             axis=1
         )
         st.dataframe(resumo, use_container_width=True)
+
+# ==============================================================
+# TELA 5: GERADOR DE MENSAGENS PARA O MOTORISTA (ANALISTAS)
+# ==============================================================
+elif menu == "💬 Gerador de Mensagens":
+    st.title("💬 Gerador de Mensagens de Acareação")
+    st.markdown("Gere o texto padrão de cobrança com todas as regras (multa, print, protocolo) para enviar aos motoristas no WhatsApp.")
+
+    base_atual = st.selectbox("🏢 Selecione a Base:", ["-- Escolha --"] + BASES_DISPONIVEIS)
+
+    if base_atual != "-- Escolha --":
+        df_imile = carregar_dados_base(base_atual)
+        if not df_imile.empty:
+            motoristas = sorted(df_imile['Motorista'].dropna().unique().tolist())
+            if '(vazio)' in motoristas: motoristas.remove('(vazio)')
+            mot_selecionado = st.selectbox("👤 Selecione o Motorista:", ["-- Escolha --"] + motoristas)
+
+            if mot_selecionado != "-- Escolha --":
+                df_mot = df_imile[df_imile['Motorista'] == mot_selecionado].copy()
+                
+                awbs = df_mot['AWB'].unique().tolist()
+                awb_selecionado = st.selectbox("📦 Selecione o Pacote (AWB):", ["-- Escolha --"] + awbs)
+                
+                if awb_selecionado != "-- Escolha --":
+                    linha = df_mot[df_mot['AWB'] == awb_selecionado].iloc[0]
+                    
+                    prazo_texto = formatar_prazo(linha.get('Prazo do Processo', ''))
+                    produto = str(linha.get('Produto', 'N/A')).strip()
+                    telefone = str(linha.get('Telefone', 'N/A')).strip()
+                    nome_cliente = str(linha.get('Nome', 'Cliente')).strip()
+                    
+                    # Monta o texto limpo com as variáveis injetadas
+                    texto_gerado = f"""Boa tarde! Segue acareação iMile:
+
+Código do pedido: {awb_selecionado}
+Produto: {produto}
+Telefone: {telefone}
+
+Finalizar até: {prazo_texto}
+
+Você pode responder as acareações com um print com a conversa com o cliente confirmando o recebimento (incluindo código do pedido, nome e telefone do mesmo, o contato não pode estar salvo e o telefone tem que ser o mesmo do sistema) ou protocolo de acareação por escrito preenchendo todos os dados corretamente (tenho impresso, pegar na base). O cabeçalho NÃO pode ser preenchido pelo cliente, pra não ficar tudo com a mesma letra, e uma foto da fachada da casa. 
+
+Caso não seja respondido dentro do prazo, ela irá extraviar em seu nome + multa de R$100,00 reais por baixa fake.
+(CASO NÃO SEJA RESPONDIDA NO PRAZO DA FORMA CORRETA, SERÁ DESCONTADO)
+
+Exemplo de como mandar mensagem:
+
+Oi, boa tarde {nome_cliente}, sou o entregador, gostaria de confirmar o recebimento de sua mercadoria com o código {awb_selecionado}.
+Produto: {produto}"""
+
+                    st.markdown("### 📋 Texto Pronto para Copiar")
+                    # O st.code já cria um botão de "Copiar" automático no canto direito
+                    st.code(texto_gerado, language="text")
+                    
+                    st.markdown("---")
+                    
+                    # Botão para abrir o WhatsApp Web/App já com a mensagem digitada
+                    msg_url = urllib.parse.quote(texto_gerado)
+                    st.link_button("📲 Enviar direto via WhatsApp", f"https://wa.me/?text={msg_url}")
+                    
+        else:
+            st.warning(f"⚠️ Nenhuma acareação pendente na base {base_atual}.")
