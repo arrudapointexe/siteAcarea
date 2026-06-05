@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import pandas as pd
-import urllib.parser
+import urllib.parsers
 import re
 import gspread
 import json
