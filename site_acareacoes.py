@@ -30,7 +30,8 @@ except:
     NOME_PLANILHA = os.getenv("NOME_PLANILHA", "acareaBase")
     URL_WEBHOOK_DRIVE = os.getenv("URL_WEBHOOK_DRIVE", "")
 
-BASES_DISPONIVEIS = ["JML", "ITR", "CTG"]
+# 🔥 CORREÇÃO 1: Adicionadas todas as bases na lista (já em ordem alfabética)
+BASES_DISPONIVEIS = ["CPH", "CTG", "CTP", "GNH", "GVR", "ITR", "JML", "MNT", "QHG", "RBN", "TFO"]
 
 # ==============================================================
 # FUNÇÕES DE APOIO E DADOS
@@ -175,7 +176,6 @@ if menu == "📷 Portal do Motorista":
 
                         prazo_texto = formatar_prazo(row.get('Prazo do Processo', ''))
                         
-                        # INJEÇÃO DA LÓGICA DO SUBTIPO AQUI 👇
                         subtipo = row['Subtipo'] if 'Subtipo' in df_mot.columns else "N/A"
                         if pd.isna(subtipo) or str(subtipo).strip() == "": subtipo = "N/A"
 
@@ -289,16 +289,15 @@ elif menu == "📈 Dashboard de KPI":
 
         st.markdown("---")
         col1, col2 = st.columns(2)
-        cores_bases = {'JML': '#FF4B4B', 'ITR': '#0068C9', 'CTG': '#29B09D'}
         
         with col1:
             st.subheader("📊 Taxa de Acareação % (KPI)")
+            # 🔥 CORREÇÃO 2: Removido o mapa de cores restrito para que o gráfico pinte todas as bases dinamicamente
             fig_kpi = px.line(
                 df_kpi, 
                 x='Data_Formatada', 
                 y='KPI (%)', 
                 color='Base', 
-                color_discrete_map=cores_bases,
                 labels={'Data_Formatada': 'Data', 'KPI (%)': 'KPI (%)'}
             )
             fig_kpi.update_traces(mode='lines+markers')
@@ -314,7 +313,6 @@ elif menu == "📈 Dashboard de KPI":
                 color='Base', 
                 barmode='group',
                 text_auto=True,
-                color_discrete_map=cores_bases,
                 labels={'Data_Formatada': 'Data', 'Acareações': 'Qtd Acareações'}
             )
             fig_qnt.update_layout(xaxis_title="", yaxis_title="Acareações", legend_title="Base", hovermode="x unified")
@@ -327,4 +325,8 @@ elif menu == "📈 Dashboard de KPI":
             lambda row: round((row['Acareações'] / row['Entregues']) * 100, 2) if row['Entregues'] > 0 else 0.0, 
             axis=1
         )
+        
+        # 🔥 CORREÇÃO 3: Ordenar a tabela final de Resumo em Ordem Alfabética
+        resumo = resumo.sort_values(by='Base').reset_index(drop=True)
+        
         st.dataframe(resumo, use_container_width=True)
