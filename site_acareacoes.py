@@ -36,3 +36,35 @@ try:
 
 except Exception as e:
     st.error(f"Erro ao tentar ler o requirements.txt: {e}")
+
+st.header("3. Exploração Detalhada do Filesystem")
+st.info("Esta seção tenta listar todos os arquivos para entendermos a estrutura do seu repositório no servidor.")
+try:
+    # Tenta listar um diretório acima para ter mais contexto
+    mount_dir = "/mount/"
+    st.write(f"Listando conteúdo de `{mount_dir}`:")
+    mount_content = os.listdir(mount_dir)
+    st.code('\n'.join(mount_content))
+
+    # Explora o diretório principal de forma recursiva
+    st.write(f"Explorando `{root_dir}` recursivamente:")
+    file_list = []
+    for root, dirs, files in os.walk(root_dir):
+        # Transforma o caminho root para ser relativo a root_dir para clareza
+        relative_root = os.path.relpath(root, root_dir)
+        if relative_root == ".":
+            relative_root = "" # Não mostra './' no início
+        
+        for name in dirs:
+            file_list.append(os.path.join(relative_root, name) + '/')
+        for name in files:
+            file_list.append(os.path.join(relative_root, name))
+    
+    if file_list:
+        st.code('\n'.join(sorted(file_list)))
+    else:
+        st.warning(f"Nenhum arquivo ou diretório encontrado em `{root_dir}` durante a exploração recursiva.")
+
+except Exception as e:
+    st.error(f"Erro durante a exploração detalhada do filesystem: {e}")
+
