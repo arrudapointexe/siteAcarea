@@ -13,8 +13,7 @@ try:
     
     # Lista os arquivos e diretórios na raiz
     files_in_root = os.listdir(root_dir)
-    st.code('
-'.join(files_in_root))
+    st.code('\n'.join(files_in_root))
     
 except Exception as e:
     st.error(f"Erro ao tentar listar arquivos: {e}")
