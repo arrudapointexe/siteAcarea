@@ -199,11 +199,13 @@ if menu == "📷 Portal do Motorista":
                             if len(tel_cliente) >= 10: tel_cliente = '55' + tel_cliente
                             else: tel_cliente = ''
 
+                            bairro = str(row.get('Bairro', 'N/A')).strip()
                             msg_cliente = (
                                 f"Olá, somos uma transportadora parceira (SHEIN/TIKTOK)\n\n"
                                 f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
                                 f"Código do pacote: {row['AWB']}\n"
-                                f"Endereço: {row.get('Endereco', 'N/A')}\n\n"
+                                f"Endereço: {row.get('Endereco', 'N/A')}\n"
+                                f"Bairro: {bairro}\n\n"
                                 f"Produto: {row.get('Produto', 'N/A')}\n\n"
                                 f"Confirma o Recebimento do produto? SIM OU NÃO"
                             )
@@ -397,12 +399,16 @@ elif menu == "💬 Gerador de Mensagens":
                     produto = str(linha.get('Produto', 'N/A')).strip()
                     telefone = str(linha.get('Telefone', 'N/A')).strip()
                     nome_cliente = str(linha.get('Nome', 'Cliente')).strip()
+                    bairro = str(linha.get('Bairro', 'N/A')).strip()
+                    endereco = str(linha.get('Endereco', 'N/A')).strip()
                     
                     texto_gerado = f"""Boa tarde! Segue acareação iMile:
 
 Código do pedido: {awb_selecionado}
 Produto: {produto}
 Telefone: {telefone}
+Endereço: {endereco}
+Bairro: {bairro}
 
 Finalizar até: {prazo_texto}
 
