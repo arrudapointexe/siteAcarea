@@ -205,7 +205,8 @@ if menu == "📷 Portal do Motorista":
                                 f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
                                 f"Código do pacote: {row['AWB']}\n"
                                 f"Endereço: {row.get('Endereco', 'N/A')}\n"
-                                f"Bairro: {bairro}\n\n"
+                                f"Bairro: {bairro}\n"
+                                f"Telefone: {tel_bruto}\n\n"
                                 f"Produto: {row.get('Produto', 'N/A')}\n\n"
                                 f"Confirma o Recebimento do produto? SIM OU NÃO"
                             )
