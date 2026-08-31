@@ -402,16 +402,16 @@ elif menu == "💬 Gerador de Mensagens":
                     produto = str(linha.get('Produto', 'N/A')).strip()
                     telefone = str(linha.get('Telefone', 'N/A')).strip()
                     nome_cliente = str(linha.get('Nome', 'Cliente')).strip()
-                    bairro = str(linha.get('Bairro', 'N/A')).strip()
+                    valor = str(linha.get('Valor', '0.00')).strip()
                     endereco = str(linha.get('Endereco', 'N/A')).strip()
                     
                     texto_gerado = f"""🚨 *Acareação iMile Pendente* 🚨
 
 📦 *Código:* {awb_selecionado}
 🏷️ *Produto:* {produto}
+💰 *Valor:* R$ {valor}
 📞 *Telefone:* {telefone}
 📍 *Endereço:* {endereco}
-🏘️ *Bairro:* {bairro}
 
 ⏰ *FINALIZAR ATÉ:* {prazo_texto}
 
@@ -421,7 +421,7 @@ Acesse o portal do motorista pelo link abaixo e envie o seu comprovante (print o
 
 *Regras para o Comprovante:*
 1️⃣ *Print do WhatsApp:* A conversa com o cliente deve confirmar o recebimento (com código do pedido, nome e telefone). O contato NÃO pode estar salvo na sua agenda e o número deve ser o mesmo do sistema.
-2️⃣ *Protocolo Escrito:* Preencha todos os dados corretamente (pegue impresso na base). O cabeçalho NÃO pode ser preenchido pelo cliente. É obrigatório foto da fachada do local.
+2️⃣ *Protocolo Escrito:* Preencha todos os dados corretamente (pegue impresso na base). O cabeçalho NÃO pode ser preenchido pelo cliente. É obrigatória uma foto da folha do protocolo e outra da folha com a fachada atrás.
 
 ⚠️ *ATENÇÃO:* Caso não seja respondido no prazo e da forma correta, o pacote será dado como extraviado em seu nome + MULTA de R$100,00 por baixa indevida. O valor será descontado!"""
 
@@ -435,4 +435,3 @@ Acesse o portal do motorista pelo link abaixo e envie o seu comprovante (print o
                     
         else:
             st.warning(f"⚠️ Nenhuma acareação pendente na base {base_atual}.")
-            
