@@ -33,7 +33,7 @@ except:
     URL_SITE = os.getenv("URL_SITE", "https://imileacarea.streamlit.app")
 
 # 🔥 CORREÇÃO 1: As 11 bases da rede em ordem alfabética
-BASES_DISPONIVEIS = ["CPH", "CTP", "GNH", "GVR", "ITR", "JML", "MNT", "QHG", "RBN", "TFO", "BIM"]
+BASES_DISPONIVEIS = ["CPH", "CTP", "GNH", "GVR", "ITR", "JML", "MNT", "QHG", "RBN", "TFO", "BIM", "SNB"]
 
 # ==============================================================
 # FUNÇÕES DE APOIO E DADOS
