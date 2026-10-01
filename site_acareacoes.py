@@ -204,7 +204,7 @@ if menu == "📷 Portal do Motorista":
                             bairro = str(row.get('Bairro', 'N/A')).strip()
                             subtipo_pacote = str(row.get('Subtipo', '')).strip()
                             
-                            if subtipo_pacote not in ["TT BRA Fake Delivery", "Baixa Indevida", "N/A"]:
+                            if subtipo_pacote not in ["TT BRA Fake Delivery", "Baixa Indevida", "Fake Delivery", "N/A"]:
                                 msg_cliente = (
                                     f"Olá! Boa tarde!\n"
                                     f"Sou da iMile. Neste número estou falando com {row['Nome']}?\n\n"
