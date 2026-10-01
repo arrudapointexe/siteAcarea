@@ -202,16 +202,29 @@ if menu == "📷 Portal do Motorista":
                             else: tel_cliente = ''
 
                             bairro = str(row.get('Bairro', 'N/A')).strip()
-                            msg_cliente = (
-                                f"Olá, somos uma transportadora parceira (SHEIN/TIKTOK)\n\n"
-                                f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
-                                f"Código do pacote: {row['AWB']}\n"
-                                f"Endereço: {row.get('Endereco', 'N/A')}\n"
-                                f"Bairro: {bairro}\n"
-                                f"Telefone: {tel_bruto}\n\n"
-                                f"Produto: {row.get('Produto', 'N/A')}\n\n"
-                                f"Confirma o Recebimento do produto? SIM OU NÃO"
-                            )
+                            subtipo_pacote = str(row.get('Subtipo', '')).strip()
+                            
+                            if subtipo_pacote not in ["TT BRA Fake Delivery", "Baixa Indevida", "N/A"]:
+                                msg_cliente = (
+                                    f"Olá! Boa tarde!\n"
+                                    f"Sou da iMile. Neste número estou falando com {row['Nome']}?\n\n"
+                                    f"Sobre a reclamação de avaria, gostaria de confirmar algumas informações:\n"
+                                    f"AWB: {row['AWB']}\n"
+                                    f"Produto: {row.get('Produto', 'N/A')}\n\n"
+                                    f"Você confirma que o pacote foi entregue em perfeitas condições, sem avarias, amassados ou violação? O motorista foi cordial?"
+                                )
+                            else:
+                                msg_cliente = (
+                                    f"Olá, somos uma transportadora parceira (SHEIN/TIKTOK)\n\n"
+                                    f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
+                                    f"Código do pacote: {row['AWB']}\n"
+                                    f"Endereço: {row.get('Endereco', 'N/A')}\n"
+                                    f"Bairro: {bairro}\n"
+                                    f"Telefone: {tel_bruto}\n\n"
+                                    f"Produto: {row.get('Produto', 'N/A')}\n\n"
+                                    f"Confirma o Recebimento do produto? SIM OU NÃO"
+                                )
+
                             st.code(msg_cliente, language="text") 
 
                             col1, col2 = st.columns(2)
@@ -435,3 +448,4 @@ Acesse o portal do motorista pelo link abaixo e envie o seu comprovante (print o
                     
         else:
             st.warning(f"⚠️ Nenhuma acareação pendente na base {base_atual}.")
+        
