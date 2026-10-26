@@ -215,7 +215,7 @@ if menu == "📷 Portal do Motorista":
                                 )
                             else:
                                 msg_cliente = (
-                                    f"Olá, somos uma transportadora parceira (SHEIN/TIKTOK)\n\n"
+                                    f"Olá, somos da transportadora PORTO GUIMARÃES EXPRESS,uma parceira IMILE  \n\n"
                                     f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
                                     f"Código do pacote: {row['AWB']}\n"
                                     f"Endereço: {row.get('Endereco', 'N/A')}\n"
