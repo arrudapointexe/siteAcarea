@@ -217,9 +217,9 @@ if menu == "📷 Portal do Motorista":
                                 msg_cliente = (
                                     f"Olá, somos da transportadora PORTO GUIMARÃES EXPRESS,uma parceira IMILE  \n\n"
                                     f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
-                                    f"Código do pacote: {row['AWB']}\n"
+                                    f"AWB: {row['AWB']}\n"
                                     f"Endereço: {row.get('Endereco', 'N/A')}\n"
-                                    f"Bairro: {bairro}\n"
+                                    f"Número de Referência: {Número de Referência}\n"
                                     f"Telefone: {tel_bruto}\n\n"
                                     f"Produto: {row.get('Produto', 'N/A')}\n\n"
                                     f"Confirma o Recebimento do produto? SIM OU NÃO"
