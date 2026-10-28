@@ -10,6 +10,7 @@ import base64
 import requests
 from datetime import datetime, timedelta
 import plotly.express as px
+import sync_time_patch  # Fix Google Auth time offset
 
 # ==============================================================
 # CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira linha do Streamlit)
@@ -32,12 +33,19 @@ except:
     URL_WEBHOOK_DRIVE = os.getenv("URL_WEBHOOK_DRIVE", "")
     URL_SITE = os.getenv("URL_SITE", "https://imileacarea.streamlit.app")
 
-# 🔥 CORREÇÃO 1: As 11 bases da rede em ordem alfabética
-BASES_DISPONIVEIS = ["CPH", "CTP", "GNH", "GVR", "ITR", "JML", "MNT", "QHG", "RBN", "TFO", "BIM", "SNB"]
+# 🔥 CORREÇÃO 1: As bases da rede em ordem alfabética
+BASES_DISPONIVEIS = ["BIM", "CPH", "CTG", "CTP", "GNH", "GVR", "ITR", "JML", "MNT", "QHG", "RBN", "SNB", "TFO"]
 
 # ==============================================================
 # FUNÇÕES DE APOIO E DADOS
 # ==============================================================
+def obter_num_referencia(d):
+    for col in ['Número de Referência', 'Numero de Referencia', 'Nº de Referência', 'N° de Referência', 'Referência', 'Referencia']:
+        if col in d:
+            val = str(d[col]).strip()
+            if val and val.lower() not in ['nan', 'none', 'n/a', '-']:
+                return val
+    return ""
 def obter_credenciais():
     try:
         with open('credenciais.json') as f:
@@ -111,7 +119,8 @@ def carregar_dados_base(nome_aba):
         if 'Motorista' in df.columns:
             df['Motorista'] = df['Motorista'].astype(str).str.strip()
         return df
-    except: 
+    except Exception as e: 
+        st.error(f"Erro ao acessar Google Sheets: {e}")
         return pd.DataFrame()
 
 @st.cache_data(ttl=120)
@@ -177,10 +186,18 @@ if menu == "📷 Portal do Motorista":
                     st.markdown(f"<h3 style='color: #0068C9; margin-top: 25px; border-bottom: 2px solid #0068C9; padding-bottom: 5px;'>🏷️ {subtipo_atual} <span style='color: gray; font-size: 16px;'>({len(df_sub)} pacote(s))</span></h3>", unsafe_allow_html=True)
 
                     for idx, row in df_sub.iterrows():
-                        with st.expander(f"🔵 iMile | Pacote: {row['AWB']} - {row['Nome']}", expanded=False):
+                        num_ref = obter_num_referencia(row)
+                        titulo_expander = f"🔵 iMile | Pacote: {row['AWB']}"
+                        if num_ref:
+                            titulo_expander += f" (Ref: {num_ref})"
+                        titulo_expander += f" - {row['Nome']}"
+
+                        with st.expander(titulo_expander, expanded=False):
                             prazo_texto = formatar_prazo(row.get('Prazo do Processo', ''))
 
                             st.info(f"⏰ PRAZO DE FECHAMENTO: {prazo_texto}")
+                            if num_ref:
+                                st.info(f"📄 Nº DE REFERÊNCIA: {num_ref}")
                             st.info(f"💰 VALOR DO PACOTE: RS {row.get('Valor', '0.00')} + R$ 100,00 MULTA")
 
                             st.markdown("### 📷 Enviar Comprovante")
@@ -203,13 +220,15 @@ if menu == "📷 Portal do Motorista":
 
                             bairro = str(row.get('Bairro', 'N/A')).strip()
                             subtipo_pacote = str(row.get('Subtipo', '')).strip()
-                            
+                            linha_ref_msg = f"Nº de referência: {num_ref}\n" if num_ref else ""
+
                             if subtipo_pacote not in ["TT BRA Fake Delivery", "Baixa Indevida", "Fake Delivery", "TT BRA Complaint order Delivered but not received", "N/A"]:
                                 msg_cliente = (
                                     f"Olá! Boa tarde!\n"
                                     f"Sou da iMile. Neste número estou falando com {row['Nome']}?\n\n"
                                     f"Sobre a reclamação de avaria, gostaria de confirmar algumas informações:\n"
                                     f"AWB: {row['AWB']}\n"
+                                    f"{linha_ref_msg}"
                                     f"Produto: {row.get('Produto', 'N/A')}\n\n"
                                     f"Você confirma que o pacote foi entregue em perfeitas condições, sem avarias, amassados ou violação? O motorista foi cordial?"
                                 )
@@ -217,9 +236,10 @@ if menu == "📷 Portal do Motorista":
                                 msg_cliente = (
                                     f"Olá, somos da transportadora PORTO GUIMARÃES EXPRESS,uma parceira IMILE  \n\n"
                                     f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
-                                    f"AWB: {row['AWB']}\n"
+                                    f"Código do pacote: {row['AWB']}\n"
+                                    f"{linha_ref_msg}"
                                     f"Endereço: {row.get('Endereco', 'N/A')}\n"
-                                    f"Número de Referência: {Número de Referência}\n"
+                                    f"Bairro: {bairro}\n"
                                     f"Telefone: {tel_bruto}\n\n"
                                     f"Produto: {row.get('Produto', 'N/A')}\n\n"
                                     f"Confirma o Recebimento do produto? SIM OU NÃO"
@@ -234,7 +254,8 @@ if menu == "📷 Portal do Motorista":
                                 else:
                                     st.error("Telefone indisponível")
                             with col2:
-                                msg_base = f"Base, segue comprovante do pacote {row['AWB']}."
+                                ref_info = f" (Ref: {num_ref})" if num_ref else ""
+                                msg_base = f"Base, segue comprovante do pacote {row['AWB']}{ref_info}."
                                 numero_whats = NUMERO_BASE_CTG if base_atual == "CTG" else NUMERO_BASE
                                 st.link_button("2️⃣ Avisar Base", f"https://wa.me/{numero_whats}?text={urllib.parse.quote(msg_base)}")
         else:
@@ -411,6 +432,8 @@ elif menu == "💬 Gerador de Mensagens":
                 if awb_selecionado != "-- Escolha --":
                     linha = df_mot[df_mot['AWB'] == awb_selecionado].iloc[0]
                     
+                    num_ref = obter_num_referencia(linha)
+                    ref_texto = num_ref if num_ref else "N/A"
                     prazo_texto = formatar_prazo(linha.get('Prazo do Processo', ''))
                     produto = str(linha.get('Produto', 'N/A')).strip()
                     telefone = str(linha.get('Telefone', 'N/A')).strip()
@@ -421,6 +444,7 @@ elif menu == "💬 Gerador de Mensagens":
                     texto_gerado = f"""🚨 *Acareação iMile Pendente* 🚨
 
 📦 *Código:* {awb_selecionado}
+📄 *Nº de Referência:* {ref_texto}
 🏷️ *Produto:* {produto}
 💰 *Valor:* R$ {valor}
 📞 *Telefone:* {telefone}
@@ -448,4 +472,3 @@ Acesse o portal do motorista pelo link abaixo e envie o seu comprovante (print o
                     
         else:
             st.warning(f"⚠️ Nenhuma acareação pendente na base {base_atual}.")
-        
