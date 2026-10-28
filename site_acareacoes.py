@@ -10,7 +10,10 @@ import base64
 import requests
 from datetime import datetime, timedelta
 import plotly.express as px
-import sync_time_patch  # Fix Google Auth time offset
+try:
+    import sync_time_patch  # Fix Google Auth time offset
+except ImportError:
+    pass
 
 # ==============================================================
 # CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira linha do Streamlit)
