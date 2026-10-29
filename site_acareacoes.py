@@ -237,7 +237,7 @@ if menu == "📷 Portal do Motorista":
                                 )
                             else:
                                 msg_cliente = (
-                                    f"Olá, somos da transportadora PORTO GUIMARÃES EXPRESS,uma parceira IMILE  \n"
+                                    f"Olá, somos da transportadora PORTO GUIMARÃES EXPRESS,uma parceira IMILE.  \n"
                                     f"{row['Nome']}, poderia confirmar o recebimento da mercadoria com os dados abaixo:\n"
                                     f"Código do pacote: {row['AWB']}\n"
                                     f"{linha_ref_msg}"
