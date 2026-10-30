@@ -225,7 +225,7 @@ if menu == "📷 Portal do Motorista":
                             subtipo_pacote = str(row.get('Subtipo', '')).strip()
                             linha_ref_msg = f"Nº de referência: {num_ref}\n" if num_ref else ""
 
-                            if subtipo_pacote not in ["TT BRA Fake Delivery", "Baixa Indevida", "Fake Delivery", "TT BRA Complaint order Delivered but not received", "N/A"]:
+                            if subtipo_pacote not in ["TT BRA Fake Delivery", "TT BRA Inquiry - order Delivered but not received", "Baixa Indevida", "Fake Delivery", "TT BRA Complaint order Delivered but not received", "N/A"]:
                                 msg_cliente = (
                                     f"Olá! Boa tarde!\n"
                                     f"Sou da iMile. Neste número estou falando com {row['Nome']}?\n\n"
